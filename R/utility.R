@@ -60,7 +60,6 @@ Ed2u <- function(delta, W0, a=1, b=1, ...) -b^2 * exp(-b * (W0 + ct(delta)) + 0.
 #' @param W0 value at known point
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
-#' @export
 Euopen <- function(delta, W0, sigma=1, a=1, b=1, ...) {
     exparg <- exparg.open(delta, W0=W0, sigma=sigma, b=b)
     #a * (W0 + ct(delta)) - exp(-b * (W0 + c(delta)) + 0.5 * b^2 * sigma^2 * delta)
@@ -77,7 +76,6 @@ Euopen <- function(delta, W0, sigma=1, a=1, b=1, ...) {
 #' @param sigma brownian walk *sigma* parameter
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
-#' @export
 Eubrid <- function(delta, xl, xr, Wl, Wr, sigma=1, a=1, b=1, ...) {
     exparg <- exparg.brid(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b)
     dbar <- xr - xl - delta
@@ -85,7 +83,27 @@ Eubrid <- function(delta, xl, xr, Wl, Wr, sigma=1, a=1, b=1, ...) {
     a * arg - exp(exparg)
 }
 
-#' ratio of -Ed2u / Edu
+#' New value at open jump
+#'
+#' @param delta jump distance
+#' @param sigma brownian standard deviation
+#' @export
+openjump <- function(delta, sigma=1) sigma * sqrt(delta) * rnorm(1)
+
+#' New value at bridge jump
+#'
+#' @param delta jump distance from left endpoint
+#' @param xl left endpoint
+#' @param xl right endpoint
+#' @param Wl value of left point
+#' @param Wr value of right point
+#' @param sigma brownian standard deviation
+#' @export
+bridjump <- function(delta, xl, xr, Wl, Wr, sigma=1) Wl + delta * (Wr - Wl) / (Wr - Wl) + sigma * sqrt((delta * (xr - xl - delta)) / (xr - xl)) * rnorm(1)
+
+
+
+#' Ratio of -Ed2u / Edu
 #' 
 #' Multiplier on variance term, used in criteria calculations.
 #' Logarithmic version relies on log(1 + exp(x)) for positive x.
@@ -103,7 +121,7 @@ euratio <- function(exparg, a=1, b=1, log=TRUE, ...) {
     }
 }
 
-#' logarithm of -Ed2u / Edu
+#' Logarithm of -Ed2u / Edu
 #' 
 #' Relies on log(1 + exp(x)) for positive x. For large x, this ~= x + exp(-x)
 #' @param exparg argument inside exponential term
@@ -189,7 +207,7 @@ bridcrit.logged <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, debug=FALSE, ..
     flip <- sign(dbar-delta)
     exparg <- exparg.brid(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b, ...)
     Mp <- ((Wr-Wl)/(xr-xl)) + dct(delta) - dct(dbar)
-    logMp <- log(flip*Mp)
+    logMp <- ifelse(flip*Mp>0, log(flip*Mp), -Inf)
     loghVp <- 2*log(sigma) - log(2) - log(xr-xl) + log(flip*(dbar-delta))
     eurat <- euratio.logged(exparg, b=b, ...)
     logMp <- flip*logMp
@@ -215,7 +233,6 @@ bridcrit.logged <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, debug=FALSE, ..
 #' @param sigma brownian walk *sigma* parameter
 #' @param b utility function *b* parameter
 #' @param log use logged criterion?
-#' @export
 opencrit <- function(delta, W0, sigma=1, b=1, log=TRUE, ...) {
     if(log) {
         opencrit.logged(delta, W0=W0, sigma=sigma, b=b, ...)
@@ -238,7 +255,6 @@ opencrit <- function(delta, W0, sigma=1, b=1, log=TRUE, ...) {
 #' @param sigma brownian walk *sigma* parameter
 #' @param b utility function *b* parameter
 #' @param log use logged criterion?
-#' @export
 bridcrit <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, log=TRUE, ...) {
     if(log) {
         bridcrit.logged(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b, ...)
@@ -247,72 +263,8 @@ bridcrit <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, log=TRUE, ...) {
     }
 }
 
-#' open criterion function (logged)
-#'
-#' General criterion: 0 = -log M' + log(1/2 V') + log( -Ed2u/Edu )
-#' Open criterion: M' = c'(delta)
-#' Open criterion: V' = sigma^2
-#' @param delta distance from point
-#' @param W0 value at point
-#' @param sigma brownian walk *sigma* parameter
-#' @param b utility function *b* parameter
-#' @export
-opencrit.old <- function(delta, W0, sigma=1, b=1, ...) {
-    exparg <- -b * (W0 + ct(delta)) + 0.5 * b^2 * sigma^2 * delta
-    nlogMp <- -2*log(delta)
-    loghVp <- 2*log(sigma) - log(2)
-    nlogMp + loghVp + euratio.log(exparg, b=b, ...)
-}
-
-#' bridge criterion function (logged)
-#'
-#' General criterion: 0 = -log M' + log(1/2 V') + log( -Ed2u/Edu )
-#' Open criterion: M' = c'(delta)
-#' Open criterion: V' = sigma^2
-#' @param delta distance from left point
-#' @param xl position of left point
-#' @param xr position of right point
-#' @param Wl value at left point
-#' @param Wr value at right point
-#' @param sigma brownian walk *sigma* parameter
-#' @param b utility function *b* parameter
-#' @export
-bridcrit.old <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, ...) {
-#bridcrit <- function(delta, xl, xh, Wl, Wh, sigma=1, b=1, ...) {
-    dbar <- xr - xl - delta
-    #exparg <- -b * (Wl + ct(delta) + ct(dbar) + delta*((Wr-Wl)/(xr-xl))) + 
-    #    0.5 * b^2 * sigma^2 * ((dbar - delta) / (xr - xl))
-    exparg <- -b * (Wl + ct(delta) + ct(dbar) + delta*((Wr-Wl)/(xr-xl))) + 
-        0.5 * b^2 * sigma^2 * ((dbar * delta) / (xr - xl))
-    #Eurat <- -b * (1 - 1/(1+(b/a)*exp(exparg)))
-    #Vp <- ((dbar-delta)/(xh-xl)) * sigma^2
-
-    Mp <- ((Wr-Wl)/(xr-xl)) + dct(delta) - dct(dbar)
-    #Mp <- Mp * sign(dbar-delta)
-
-    # if Wr > Wl, then our optimum is in the second half of the search space
-    # we make some adjustments for this
-    #Mp <- ifelse(dbar>=delta, Mp, -Mp)
-    loghVp <- 2*log(sigma) - log(2) - log(xr-xl) + log(abs(dbar-delta))
-    #loghVp <- 2*log(sigma) - log(xr-xl) + log(dbar-delta)
-    hVp <- 0.5 * sigma^2 * (dbar-delta)/(xr-xl)
-
-    # reset negative Mp values to negative infinity
-    # we're guaranteed there's no solution at such values anyway (unless we're on back half)
-    #nlogMp <- ifelse(Mp<0, Inf, -log(Mp))
-    #nlogMp <- -log(Mp)
-    nlogMp <- -log(Mp)
-    loghVp + euratio.log(exparg, b=b, ...) + nlogMp
-
-    dMp <- data.table(x=delta, y=Mp, type='Mp')
-    dhVp <- data.table(x=delta, y=hVp, type='hVp')
-    dEurat <- data.table(x=delta, y=euratio.normal(exparg, b=b, ...), type='Eurat')
-    dhVpEurat <- data.table(x=delta, y=hVp*euratio.normal(exparg, b=b, ...), type='hVpEurat')
-    rbindlist(list(dMp, dhVpEurat))
-}
-
-#' @import data.table
-plotcrit <- function(critfs, n=1e3+1, ylim=0.95, xl=0, xr=1, ...) {
+# @import data.table
+plot_crit <- function(critfs, n=1e3+1, ylim=0.95, xl=0, xr=1, ...) {
     if(!'list' %in% class(critfs)) critfs <- list(critfs)
     xs <- seq(xl, xr, length.out=n)
 
@@ -342,7 +294,11 @@ plotcrit <- function(critfs, n=1e3+1, ylim=0.95, xl=0, xr=1, ...) {
     ysdt
 }
 
-openjump <- function(delta) sigma * sqrt(delta) * rnorm(1)
-bridjump <- function(delta, xl, xr, yl, yr) yl + delta * (yr - yl) / (xr - xl) + sigma * sqrt((delta * (xr - xl - delta)) / (xr - xl)) * rnorm(1)
+plot_bridcrit <- function(xl, xr, Wl, Wr, ...) {
+    plot_crit(bridcrit, xl=xl, xr=xr, Wl=Wl, Wr=Wr, ...)
+}
 
-
+plot_bridcrits <- function(xl, xr, Wl, Wr, ...) {
+    plot_crit(list(bridcrit.normal, bridcrit.logged),
+              xl=xl, xr=xr, Wl=Wl, Wr=Wr, ...)
+}
