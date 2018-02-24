@@ -99,7 +99,7 @@ openjump <- function(delta, sigma=1) sigma * sqrt(delta) * rnorm(1)
 #' @param Wr value of right point
 #' @param sigma brownian standard deviation
 #' @export
-bridjump <- function(delta, xl, xr, Wl, Wr, sigma=1) Wl + delta * (Wr - Wl) / (Wr - Wl) + sigma * sqrt((delta * (xr - xl - delta)) / (xr - xl)) * rnorm(1)
+bridjump <- function(delta, xl, xr, Wl, Wr, sigma=1) Wl + delta * (Wr - Wl) / (xr - xl) + sigma * sqrt((delta * (xr - xl - delta)) / (xr - xl)) * rnorm(1)
 
 
 

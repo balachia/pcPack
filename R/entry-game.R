@@ -57,8 +57,6 @@ run_simulation <- function(n, agents,
                             Wr=intervals[enteridx, Wr])]
         intervals[enteridx, `:=`(xr=xe, Wr=We)]
 
-        #print(intervals[J(c(enteridx, i+1))])
-
         # update all agents
         for(agent.i in seq_along(agents)) {
             agent <- agents[[agent.i]]
@@ -79,19 +77,4 @@ set_up_agents <- function(n, insert.dt, agents, randomize=FALSE) {
     agent.order <- c(rep(1, nrow(insert.dt)), agent.order)
 
     list(agents=agents1, order=agent.order)
-}
-
-test_simulation <- function(n=100) {
-    insert.dt <- data.table(x=0, W=0)
-    agl <- set_up_agents(n, insert.dt,
-                         list(make_standard_agent(n)),
-                         randomize=FALSE)
-    #agents <- list(
-    #    make_insert_agent(n, insert.dt),
-    #    make_standard_agent(n)
-    #    )
-
-    #agent.order <- c(rep(1, nrow(insert.dt)), rep(2, n-nrow(insert.dt)))
-
-    run_simulation(n, agl$agents, agl$order)
 }
