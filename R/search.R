@@ -29,19 +29,37 @@ search.open <- function(W0, lo=1e-4, hi=1e5, log=TRUE, ...) {
 ############################################################
 # BRIDGE INTERVAL SEARCH
 
-#' bridge function Mp criterion
+#' Bridge function Mp criterion
 #'
 #' critical zero occurs in the Mp part of the bridge criterion
 #' this helps us find it
+#' @param delta distance from left endpoint
+#' @param xl left endpoint
+#' @param xr right endpoint
+#' @param Wl value at left endpoint
+#' @param Wr value at right endpoint
 bridge.Mp.crit <- function(delta, xl, xr, Wl, Wr) {
     dbar <- xr - xl - delta
     (Wr-Wl)/(xr-xl) + dct(delta) - dct(dbar)
 }
 
-#' regular bridge search procedure
+#' Regular search procedure for bridge interval.
 #'
+#' We look for maxima of the underlying function by looking for zeros of its derivative.
+#' In general, there is either one maximum, or two maxima and one minimum
+#' In latter case, one half of space contains the single higher valued maximum,
+#' while other half of space contains a minimum near the endpoint and a maximum further away.
+#' So we find maximum in upper half, and in the lower half, we look for minimum of criterion function to check if the minima/maxima crossing points exist; if they do, we find them.
 #' @param f.n normal criterion function
 #' @param f.f fallback criterion function
+#' @param upperzero.int interval containing higher value zero
+#' @param loweroptim.int interval containing function minimum in lower half
+#' @param lowerzero.end endpoint of interval containing lower zero
+#' @param mid midpoint
+#' @param Mp0 crossing point of Mp (derivative of mean term) function component
+#' @param eps unnecessary argument?
+#' @param ... additional arguments to criterio function
+#' @importFrom stats uniroot optimize
 search.brid.regular <- function(f.n, f.f,
                                 upperzero.int, loweroptim.int, lowerzero.end,
                                 mid, Mp0,
@@ -67,8 +85,16 @@ search.brid.regular <- function(f.n, f.f,
     res
 }
 
-# search procedure when Mp0 is very close to the midpoint
-# bridcrit has zeros at midpoint and at mp0, so this causes problems
+#' Search procedure when Mp0 (mean derivative crossover) is very close to the midpoint
+#'
+#' bridcrit has zeros at midpoint and at mp0, so this causes problems
+#' @param f criterion function
+#' @param lo left endpoint of search interval
+#' @param mid midpoint of search interval
+#' @param hi right endpoint of search interval
+#' @param eps minimum distance from endpoints to search at
+#' @param ... additional arguments to criterion function (?)
+#' @importFrom stats uniroot
 search.brid.tight <- function(f, lo, mid, hi, eps=1e-6, ...) {
     midm <- f(mid-eps)
     midp <- f(mid+eps)
@@ -85,6 +111,16 @@ search.brid.tight <- function(f, lo, mid, hi, eps=1e-6, ...) {
     res
 }
 
+#' Search bridge interval for optima
+#'
+#' @param xl left endpoint
+#' @param xr right endpoint
+#' @param Wl value at left endpoint
+#' @param Wr value at right endpoint
+#' @param eps minimum distance from endpoints to search at
+#' @param debug report debugging information?
+#' @param ... additional arguments to criterion function
+#' @importFrom stats uniroot
 search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
     # for unequal Ws, we have two (three) search regions
     # on half with bigger W

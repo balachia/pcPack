@@ -3,11 +3,20 @@
 
 #' agent entry
 #'
+#' @param agent entering agent
+#' @param i entry count (id)
+#' @param intervals (data.table) existing market intervals table
+#' @param positions (data.table) existing market positions table
+#' @param ... additional arguments to agents
 #' @export
 agentEntry <- function(agent, i, intervals, positions, ...) UseMethod('agentEntry')
 
 #' agent update
 #'
+#' @param agent updated agent
+#' @param update.idx updated indices in intervals table
+#' @param intervals (data.table) new market intervals table
+#' @param ... additional arguments to agents
 #' @export
 agentUpdate <- function(agent, update.idx, intervals, ...) UseMethod('agentUpdate')
 
@@ -29,6 +38,13 @@ create_plans_table <- function(n) {
 }
 
 #' Standard utility function agent
+#'
+#' Agent with utility u(m) = a*m - exp(-b*m)
+#' @param n number of entries into the market
+#' @param a agent utility function a parameter
+#' @param b agent utility function b parameter
+#' @param ... capture additional arguments
+#' @export
 make_standard_agent <- function(n, a=1, b=1, ...) {
     ag <- list()
     class(ag) <- c('standard.agent', 'agent')

@@ -32,34 +32,38 @@ dct.logged <- function(delta) -2*log(delta)
 #' @param b b parameter
 u <- function(m, a=1, b=1) a * m - exp(-b * m)
 
-#' Expected first derivative of utility function
-#'
-#' risk aversion = b * (1 / (1 + a/b exp(bm)))
-#' a controls straightness, b controls bendiness
-#' RA increasing in b, decreasing in a
-#' @param m wealth
-#' @param a a parameter
-#' @param b b parameter
-Edu <- function(delta, W0, a=1, b=1, ...) {
-    a + b * exp(-b * (W0 + ct(delta)) + 0.5 * b^2 * sigma^2 * delta)
-}
+# #' Expected first derivative of utility function
+# #'
+# #' risk aversion = b * (1 / (1 + a/b exp(bm)))
+# #' a controls straightness, b controls bendiness
+# #' RA increasing in b, decreasing in a
+# #' @param m wealth
+# #' @param a a parameter
+# #' @param b b parameter
+# #' @param sigma random walk sigma parameter
+# Edu <- function(delta, W0, a=1, b=1, sigma=1, ...) {
+#     a + b * exp(-b * (W0 + ct(delta)) + 0.5 * b^2 * sigma^2 * delta)
+# }
 
-#' Expected second derivative of utility function
-#'
-#' risk aversion = b * (1 / (1 + a/b exp(bm)))
-#' a controls straightness, b controls bendiness
-#' RA increasing in b, decreasing in a
-#' @param m wealth
-#' @param a a parameter
-#' @param b b parameter
-Ed2u <- function(delta, W0, a=1, b=1, ...) -b^2 * exp(-b * (W0 + ct(delta)) + 0.5 * b^2 * sigma^2 * delta)
+# #' Expected second derivative of utility function
+# #'
+# #' risk aversion = b * (1 / (1 + a/b exp(bm)))
+# #' a controls straightness, b controls bendiness
+# #' RA increasing in b, decreasing in a
+# #' @param m wealth
+# #' @param a a parameter
+# #' @param b b parameter
+# #' @param sigma random walk sigma parameter
+# Ed2u <- function(delta, W0, a=1, b=1, ...) -b^2 * exp(-b * (W0 + ct(delta)) + 0.5 * b^2 * sigma^2 * delta)
 
 #' Expected utility on open interval
 #'
 #' @param delta distance from known point
 #' @param W0 value at known point
+#' @param sigma random walk sigma parameter
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
+#' @param ... capture additional arguments
 Euopen <- function(delta, W0, sigma=1, a=1, b=1, ...) {
     exparg <- exparg.open(delta, W0=W0, sigma=sigma, b=b)
     #a * (W0 + ct(delta)) - exp(-b * (W0 + c(delta)) + 0.5 * b^2 * sigma^2 * delta)
@@ -76,6 +80,7 @@ Euopen <- function(delta, W0, sigma=1, a=1, b=1, ...) {
 #' @param sigma brownian walk *sigma* parameter
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
+#' @param ... capture additional arguments
 Eubrid <- function(delta, xl, xr, Wl, Wr, sigma=1, a=1, b=1, ...) {
     exparg <- exparg.brid(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b)
     dbar <- xr - xl - delta
@@ -88,17 +93,19 @@ Eubrid <- function(delta, xl, xr, Wl, Wr, sigma=1, a=1, b=1, ...) {
 #' @param delta jump distance
 #' @param sigma brownian standard deviation
 #' @export
+#' @importFrom stats rnorm
 openjump <- function(delta, sigma=1) sigma * sqrt(delta) * rnorm(1)
 
 #' New value at bridge jump
 #'
 #' @param delta jump distance from left endpoint
 #' @param xl left endpoint
-#' @param xl right endpoint
+#' @param xr right endpoint
 #' @param Wl value of left point
 #' @param Wr value of right point
 #' @param sigma brownian standard deviation
 #' @export
+#' @importFrom stats rnorm
 bridjump <- function(delta, xl, xr, Wl, Wr, sigma=1) Wl + delta * (Wr - Wl) / (xr - xl) + sigma * sqrt((delta * (xr - xl - delta)) / (xr - xl)) * rnorm(1)
 
 
@@ -112,6 +119,7 @@ bridjump <- function(delta, xl, xr, Wl, Wr, sigma=1) Wl + delta * (Wr - Wl) / (x
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
 #' @param log use logarithmic version?
+#' @param ... additional arguments to subfunctions
 #' @export
 euratio <- function(exparg, a=1, b=1, log=TRUE, ...) {
     if(log) {
@@ -127,6 +135,7 @@ euratio <- function(exparg, a=1, b=1, log=TRUE, ...) {
 #' @param exparg argument inside exponential term
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
+#' @param ... capture additional arguments
 euratio.logged <- function(exparg, a=1, b=1, ...) {
     exparg2 <- exparg + log(b/a)
     #log1pexp <- if(exparg2 <= 18) { log1p(exp(exparg2)) } else { exparg2 + exp(-exparg2) }
@@ -141,6 +150,7 @@ euratio.logged <- function(exparg, a=1, b=1, ...) {
 #' @param exparg argument inside exponential term
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
+#' @param ... capture additional arguments
 euratio.normal <- function(exparg, a=1, b=1, ...) {
     b^2 / a * exp(exparg) / (1 + (b/a) * exp(exparg))
 }
@@ -233,6 +243,7 @@ bridcrit.logged <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, debug=FALSE, ..
 #' @param sigma brownian walk *sigma* parameter
 #' @param b utility function *b* parameter
 #' @param log use logged criterion?
+#' @param ... additional arguments to criterion subfunctions
 opencrit <- function(delta, W0, sigma=1, b=1, log=TRUE, ...) {
     if(log) {
         opencrit.logged(delta, W0=W0, sigma=sigma, b=b, ...)
@@ -255,6 +266,7 @@ opencrit <- function(delta, W0, sigma=1, b=1, log=TRUE, ...) {
 #' @param sigma brownian walk *sigma* parameter
 #' @param b utility function *b* parameter
 #' @param log use logged criterion?
+#' @param ... additional arguments to criterion subfunctions
 bridcrit <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, log=TRUE, ...) {
     if(log) {
         bridcrit.logged(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b, ...)
@@ -263,7 +275,8 @@ bridcrit <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, log=TRUE, ...) {
     }
 }
 
-# @import data.table
+#' @import ggplot2
+#' @importFrom stats quantile
 plot_crit <- function(critfs, n=1e3+1, ylim=0.95, xl=0, xr=1, ...) {
     if(!'list' %in% class(critfs)) critfs <- list(critfs)
     xs <- seq(xl, xr, length.out=n)

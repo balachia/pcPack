@@ -1,6 +1,7 @@
 ############################################################
-# Simulation Diagnostic
+# Simulation Diagnostic and Profiling
 
+#' @import utils
 profile_simulation <- function(n=1e2, vis=TRUE) {
     tmp <- tempfile()
 
@@ -47,6 +48,7 @@ make_diagnostic_agent <- function(...) {
     ag
 }
 
+#' @import ggplot2
 agentEntry.diagnostic.agent <- function(ag, i, intervals, positions, ...) {
     plan <- ag$plan[, list(id, delta, Eu=-log1p(max(Eu) - Eu))]
     res <- agentEntry.standard.agent(ag, i, intervals, positions, ...)
@@ -75,6 +77,8 @@ agentEntry.diagnostic.agent <- function(ag, i, intervals, positions, ...) {
 ############################################################
 # Brownian Walk Diagnostic
 
+#' @import ggplot2
+#' @importFrom utils head tail
 diagnose_positions <- function(positions) {
     dt <- positions[order(x),
                     list(dx = tail(x, -1) - head(x, -1),

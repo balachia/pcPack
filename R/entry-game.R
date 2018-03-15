@@ -6,6 +6,7 @@
 #'  xl, xr --- location of left (right) end; +/-Inf for open intervals
 #'  Wl, Wr --- value at left and right intervals; NA for unentered and open intervals
 #'  state --- interval state
+#' @param n number of intervals to create (n.b. should 1+number of entries)
 create.intervals.table <- function(n) {
     data.table(id=1:n, xl=-Inf, xr=Inf,
                Wl=as.numeric(NA), Wr=as.numeric(NA),
@@ -18,6 +19,7 @@ create.intervals.table <- function(n) {
 #'  id --- (key) entry sequence
 #'  x --- entry position
 #'  W --- position value
+#' @param n number of positions to create
 create.positions.table <- function(n) {
     data.table(id=1:n, x=as.numeric(NA), W=as.numeric(NA), agent.id=as.numeric(NA),
                key='id')
@@ -25,10 +27,16 @@ create.positions.table <- function(n) {
 
 #' Run simulation with specified agents
 #'
+#' @param n number of entries into the market (simulation iterations)
+#' @param agents list of agent types in the market
+#' @param agent.order agent entry order into the market
+#' @param verbose verbosity
+#' @param ... additional arguments to agents
 #' @import data.table
 #' @export
 run_simulation <- function(n, agents,
                        agent.order=rep(seq_along(agents), length.out=n),
+                       verbose=0,
                        ...) {
 
     # prepare tables
@@ -37,13 +45,16 @@ run_simulation <- function(n, agents,
     positions <- create.positions.table(n)
     intervals <- create.intervals.table(n+1)
 
+    verb.interval <- n/20
+
     for(i in 1:n) {
         #print(intervals)
+        if(verbose >= 2 && i %% verb.interval < 1) cat('.')
 
         agent <- agents[[agent.order[i]]]
         entry <- agentEntry(agent, i, intervals, positions, ...)
 
-        cat(sprintf('%s --- %s --- %s\n', entry$idx, entry$x, entry$W))
+        #cat(sprintf('%s --- %s --- %s\n', entry$idx, entry$x, entry$W))
 
         xe <- entry$x
         We <- entry$W
@@ -67,7 +78,55 @@ run_simulation <- function(n, agents,
     list(positions=positions, intervals=intervals, agents=agents)
 }
 
-set_up_agents <- function(n, insert.dt, agents, randomize=FALSE) {
+#' Run multiple simulations
+#' 
+#' @param nsim number of markets to simulation
+#' @param n number of entries into each market (simulation iterations)
+#' @param agent.fs list of functions to create agent types
+#' @param insert.dt list of initial positions to insert
+#' @param seed control random seed
+#' @param verbose verbosity
+#' @param ... additional arguments for agent types
+#' @import data.table
+#' @export
+run_simulations <- function(nsim, n,
+                            agent.fs=list(make_standard_agent),
+                            insert.dt=data.table(x=0, W=0),
+                            seed=1, verbose=1,
+                            ...) {
+    set.seed(seed)
+    seeds <- sample.int(.Machine$integer.max, nsim)
+    sim.format <- sprintf('SIM %%%dd / %d ', 1+floor(log10(nsim)), nsim)
+    time.format <- ' (%0.2fs | %0.2fs/i)\n'
+    ptm <- proc.time()
+    ress <- parallel::mclapply(1:nsim,
+        FUN=function(simi) {
+            set.seed(seeds[simi])
+            if(verbose >= 1) cat(sprintf(sim.format, simi))
+            ags0 <- lapply(agent.fs, function(f) f(n, ...))
+            agl <- set_up_agents(n, insert.dt, ags0, ...)
+            res <- run_simulation(n, agl$agents, agl$order, verbose=verbose, ...)
+            dtime <- (proc.time() - ptm)[3]
+            if(verbose >= 1) cat(sprintf(time.format, dtime, dtime/simi))
+            res$positions[, sim := simi]
+            res$intervals[, sim := simi]
+            res
+        })
+
+    purrr::transpose(ress)
+}
+
+#' Combine list of simulations into a single structure
+#' 
+#' @param sims_list list of simulations
+#' @export
+combine_simulations <- function(sims_list) {
+    positions <- rbindlist(sims_list$positions)
+    intervals <- rbindlist(sims_list$intervals)
+    list(positions=positions, intervals=intervals, agents=sims_list$agents)
+}
+
+set_up_agents <- function(n, insert.dt, agents, randomize=FALSE, ...) {
     agents1 <- c(list(make_insert_agent(n, insert.dt)), agents)
     if(randomize) {
         agent.order <- sample(1+(1:length(agents)), size=n-nrow(insert.dt), replace=TRUE)
