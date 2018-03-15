@@ -30,20 +30,22 @@ agglom <- function(xs) {
 #' @param ... captire additional arguments
 #' @export
 make_categories <- function(positions,
-                            init.iter=positions[agent.id>1, min(id)],
+                            min.iter=positions[agent.id>1, min(id)],
                             max.iter=positions[, max(id)],
-                            method='AIC',
+                            ic='AIC',
+                            verbose.prefix='',
                             ...) {
     # verbosity calculations
-    max.pad <- 10
-    line.format <- sprintf('\rITER %%%ds :: k %%-%ds', 1+floor(log10(max.iter)), max.pad)
+    base.line.format <- '\r%sITER %%%ds :: k %%-%ds'
+    max.pad <- 2
+    line.format <- sprintf(base.line.format, verbose.prefix, 1+floor(log10(max.iter)), max.pad)
 
     # assign NULL mixture to all uncategorized iterations
-    ems <- rep(list(NULL), init.iter-1)
+    ems <- rep(list(NULL), min.iter-1)
     ks <- NULL
     #ems <- rep(list(NULL), max.iter)
 
-    for(i in init.iter:max.iter) {
+    for(i in min.iter:max.iter) {
         x <- as.matrix(positions[id <= i, x])
 
         #cat('\n')
@@ -70,7 +72,7 @@ make_categories <- function(positions,
             ic.diffs <- sapply(ics, function(ic) catb$ic[[ic]] - cata$ic[[ic]])
             names(ic.diffs) <- ics
 
-            if(ic.diffs[method] < 0) {
+            if(ic.diffs[ic] < 0) {
                 k <- k+1
                 cata <- catb
                 #mixa <- mixb
@@ -82,7 +84,8 @@ make_categories <- function(positions,
 
         ems <- c(ems, list(cata$mix))
         ks <- sort(unique(c(ks, k)))
-        line.format <- sprintf('\rITER %%%ds :: k %%-%ds', 1+floor(log10(max.iter)), nchar(agglom(ks)) + 3)
+        if(nchar(agglom(ks)) + 3 > max.pad) max.pad <- nchar(agglom(ks)) + 3
+        line.format <- sprintf(base.line.format, verbose.prefix, 1+floor(log10(max.iter)), max.pad)
         #ems[[i]] <- list(cata$mixa)
     }
     ems
