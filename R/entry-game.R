@@ -90,10 +90,12 @@ run_simulation <- function(n, agents,
 #' @import data.table
 #' @export
 run_simulations <- function(nsim, n,
-                            agent.fs=list(make_standard_agent),
+                            #agent.fs=list(make_standard_agent),
+                            agents=list(make_standard_agent()),
                             insert.dt=data.table(x=0, W=0),
                             seed=1, verbose=1,
                             ...) {
+    # pre-sample seeds for parallel computation
     set.seed(seed)
     seeds <- sample.int(.Machine$integer.max, nsim)
     sim.format <- sprintf('SIM %%%dd / %d ', 1+floor(log10(nsim)), nsim)
@@ -103,8 +105,9 @@ run_simulations <- function(nsim, n,
         FUN=function(simi) {
             set.seed(seeds[simi])
             if(verbose >= 1) cat(sprintf(sim.format, simi))
-            ags0 <- lapply(agent.fs, function(f) f(n, ...))
-            agl <- set_up_agents(n, insert.dt, ags0, ...)
+            #ags0 <- lapply(agent.fs, function(f) f(n, ...))
+            #agl <- set_up_agents(n, insert.dt, ags0, ...)
+            agl <- set_up_agents(n, insert.dt, agents, ...)
             res <- run_simulation(n, agl$agents, agl$order, verbose=verbose, ...)
             dtime <- (proc.time() - ptm)[3]
             if(verbose >= 1) cat(sprintf(time.format, dtime, dtime/simi))
@@ -127,13 +130,17 @@ combine_simulations <- function(sims_list) {
 }
 
 set_up_agents <- function(n, insert.dt, agents, randomize=FALSE, ...) {
-    agents1 <- c(list(make_insert_agent(n, insert.dt)), agents)
+    nagents <- length(agents)
+    ninsert <- nrow(insert.dt)
+    #agents1 <- c(list(make_insert_agent(n, insert.dt)), agents)
+    inserter <- make_insert_agent(insert.dt)
+    agents1 <- lapply(c(list(inserter), agents), function(ag) agentSetup(ag, n, ...))
     if(randomize) {
-        agent.order <- sample(1+(1:length(agents)), size=n-nrow(insert.dt), replace=TRUE)
+        agent.order <- sample(1+(1:nagents), size=n-ninsert, replace=TRUE)
     } else {
-        agent.order <- rep(1+(1:length(agents)), length.out=n-nrow(insert.dt))
+        agent.order <- rep(1+(1:nagents), length.out=n-ninsert)
     }
-    agent.order <- c(rep(1, nrow(insert.dt)), agent.order)
+    agent.order <- c(rep(1, ninsert), agent.order)
 
     list(agents=agents1, order=agent.order)
 }

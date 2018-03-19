@@ -22,6 +22,15 @@ agentUpdate <- function(agent, update.idx, intervals, ...) UseMethod('agentUpdat
 
 agentUpdate.default <- function(agent, update.idx, intervals, ...) agent
 
+#' Set up agent for simulation
+#'
+#' @param agent agent to set up
+#' @param n number of entries into market
+#' @export
+agentSetup <- function(agent, n, ...) UseMethod('agentSetup')
+
+agentSetup.default <- function(agent, n, ...) agent
+
 ############################################################
 # STANDARD AGENT
 
@@ -45,16 +54,26 @@ create_plans_table <- function(n) {
 #' @param b agent utility function b parameter
 #' @param ... capture additional arguments
 #' @export
-make_standard_agent <- function(n, a=1, b=1, ...) {
+make_standard_agent <- function(a=1, b=1, ...) {
     ag <- list()
     class(ag) <- c('standard.agent', 'agent')
 
     ag$parameters <- list(a=a, b=b)
     ag$a <- a
     ag$b <- b
-    ag$plan <- create_plans_table(n+1)
+    #ag$plan <- create_plans_table(n+1)
 
     ag
+}
+
+#' @export
+print.standard.agent <- function(ag, ...) {
+    cat(sprintf('standard agent :: a %s :: b %s\n', ag$a, ag$b))
+}
+
+agentSetup.standard.agent <- function(agent, n, ...) {
+    agent$plan <- create_plans_table(n+1)
+    agent
 }
 
 #' @import data.table
@@ -116,7 +135,7 @@ agentUpdate.standard.agent <- function(agent, update.idx, intervals, ...) {
 ############################################################
 # INSERT AGENT
 
-make_insert_agent <- function(n, insert.dt, ...) {
+make_insert_agent <- function(insert.dt, ...) {
     ag <- list()
     class(ag) <- c('insert.agent', 'agent')
 
@@ -124,6 +143,11 @@ make_insert_agent <- function(n, insert.dt, ...) {
     ag$insert.dt <- insert.dt
 
     ag
+}
+
+#' @export
+print.insert.agent <- function(ag, ...) {
+    cat(sprintf('insert agent :: n\n', nrow(ag$insert.dt)))
 }
 
 #' @import data.table

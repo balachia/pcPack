@@ -17,7 +17,7 @@ make_parameters <- function(file=default_parameters_file) {
 
 
 #' @export
-make_simulation_listing <- function(nsim, niter, peaks, seed, ...) {
+make_simulation_listing <- function(nsim, niter, peaks, seed, agents, ...) {
     res <- list()
     class(res) <- 'simulation_listing'
 
@@ -26,6 +26,7 @@ make_simulation_listing <- function(nsim, niter, peaks, seed, ...) {
     res$niter <- niter
     res$peaks <- peaks
     res$seed <- seed
+    res$agents <- agents
 
     # make digest
     res$digest <- digest::digest(res)
@@ -44,8 +45,15 @@ print.simulation_listing <- function(x, ...) {
     cat(sprintf('\titers:\t%d\n', x$niter))
     cat(sprintf('\tpeaks:\t%d\n', x$peaks))
     cat(sprintf('\tseed:\t%d\n', x$seed))
+    cat(sprintf('\tagents:\t'))
+    if(!is.null(x$agents)) {
+        cat('\r')
+        for(ag in x$agents) { cat('\t\t'); print(ag) }
+    } else {
+        cat(sprintf('NA\n'))
+    }
 
-    cat(sprintf('\t# categorizations:\t%d\n', length(x$categorizations)))
+    cat(sprintf('\t# cats:\t%d\n', length(x$categorizations)))
 }
 
 #' @export
@@ -71,12 +79,26 @@ make_categorization_listing <- function(simulation_digest, ic,
 }
 
 #' @export
-register_simulation <- function(parameters_file=default_parameters_file, ...) {
+register_simulation <- function(parameters_file=default_parameters_file,
+                                overwrite=FALSE,
+                                ...) {
     parameters <- read_parameters(parameters_file)
     sim_listing <- make_simulation_listing(...)
-    parameters <- c(parameters, list(sim_listing))
 
-    names(parameters)[length(parameters)] <- sim_listing$digest
+    # if sim doesn't already exist
+    if(is.null(parameters[[sim_listing$digest]])) {
+        #parameters <- c(parameters, list(sim_listing))
+        #names(parameters)[length(parameters)] <- sim_listing$digest
+        parameters[[sim_listing$digest]] <- sim_listing
+    } else {
+        if(overwrite) {
+            parameters[[sim_listing$digest]] <- sim_listing
+        } else {
+            # else ignore new simulation
+            warning(sprintf('Simulation (%s) already exists in parameters file.',
+                            sim_listing$digest))
+        }
+    }
 
     write_parameters(parameters, file=parameters_file)
     sim_listing
