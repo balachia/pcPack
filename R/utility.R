@@ -231,7 +231,7 @@ bridcrit.logged <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, debug=FALSE, ..
     crit
 }
 
-#' open interval criterion function
+#' Open interval criterion function
 #'
 #' General criterion is 0 = M' + ( 1/2 * V' * ( -Ed2u/Edu ) )
 #' Logged criterion is 0 = -log M' + log(1/2 V') + log( -Ed2u/Edu )
@@ -252,7 +252,7 @@ opencrit <- function(delta, W0, sigma=1, b=1, log=TRUE, ...) {
     }
 }
 
-#' bridge interval criterion function
+#' Bridge interval criterion function
 #'
 #' General criterion is 0 = M' + ( 1/2 * V' * ( -Ed2u/Edu ) )
 #' Logged criterion is 0 = -log M' + log(1/2 V') + log( -Ed2u/Edu )
@@ -273,45 +273,4 @@ bridcrit <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, log=TRUE, ...) {
     } else {
         bridcrit.normal(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b, ...)
     }
-}
-
-#' @import ggplot2
-#' @importFrom stats quantile
-plot_crit <- function(critfs, n=1e3+1, ylim=0.95, xl=0, xr=1, ...) {
-    if(!'list' %in% class(critfs)) critfs <- list(critfs)
-    xs <- seq(xl, xr, length.out=n)
-
-    ysdts <- list()
-    for(i in seq_along(critfs)) {
-        critf <- critfs[[i]]
-        ys <- critf(xs, xl=xl, xr=xr, debug=TRUE, ...)
-        cols <- c('crit', 'Mp', 'hVp', 'eurat', 'hVpeurat')
-        ysdt <- rbindlist(map(cols, ~ data.table(x=xs, y=ys[[.]], type=., func=i)))
-        ysdts <- c(ysdts, list(ysdt))
-    }
-    ysdt <- rbindlist(ysdts)
-
-    ysdt[, maxy := quantile(abs(y), ylim, na.rm=TRUE), by=func]
-    plotdt <- ysdt[abs(y) <= maxy | is.na(y) | is.infinite(y)]
-
-    plotcols <- cols[c(2,5)]
-    ggp <- ggplot(plotdt[type %in% plotcols], aes(x, y, color=type)) +
-        facet_wrap(~func, ncol=1, scales='free_y') +
-        geom_hline(yintercept=0) +
-        #coord_cartesian(ylim=c(-ylim, ylim)) +
-        coord_cartesian(expand=FALSE) +
-        geom_line() +
-        geom_line(data=plotdt[type=='crit'], color='black', linetype='22')
-    print(ggp)
-
-    ysdt
-}
-
-plot_bridcrit <- function(xl, xr, Wl, Wr, ...) {
-    plot_crit(bridcrit, xl=xl, xr=xr, Wl=Wl, Wr=Wr, ...)
-}
-
-plot_bridcrits <- function(xl, xr, Wl, Wr, ...) {
-    plot_crit(list(bridcrit.normal, bridcrit.logged),
-              xl=xl, xr=xr, Wl=Wl, Wr=Wr, ...)
 }

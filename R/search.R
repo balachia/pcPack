@@ -64,12 +64,43 @@ search.brid.regular <- function(f.n, f.f,
                                 upperzero.int, loweroptim.int, lowerzero.end,
                                 mid, Mp0,
                                 eps=1e-6, ...) {
+    # which half are we in? +1 = upper, -1 = lower
+    half.sign <- sign(Mp0 - mid)
+
     # find zero @ higher end
-    if(sign(prod(f.n(upperzero.int))) < 0) {
-        upperzero <- uniroot(f.n, upperzero.int, ...)
+    f.n.vals <- f.n(upperzero.int)
+    if(sign(prod(f.n.vals)) < 0) {
+        # if upper zero is between Mp0 (w/ numerical error!) and endpoint
+        upperzero <- uniroot(f.n, upperzero.int, f.lower=f.n.vals[1], f.upper=f.n.vals[2], ...)
         res <- list(u0=upperzero$root)
     } else {
-        upperzero <- uniroot(f.f, sort(c(mid, Mp0)), ...)
+        # else, check between midpoint and Mp0
+        # but! due to numerical error, f.n(Mp0) and f.f(Mp0) may not share sign
+        Mp0.br <- Mp0 + Mp0-mid
+        f.f.mid <- f.f(mid)
+        f.f.Mp0 <- f.f(Mp0)
+        f.f.Mp0.br <- f.f(Mp0.br)
+
+        if(half.sign > 0) {
+            ends <- c(mid, Mp0)
+            ends.br <- c(mid, Mp0.br)
+            f.f.ends <- c(f.f.mid, f.f.Mp0)
+            f.f.ends.br <- c(f.f.mid, f.f.Mp0.br)
+        } else {
+            ends <- c(Mp0, mid)
+            ends.br <- c(Mp0.br, mid)
+            f.f.ends <- c(f.f.Mp0, f.f.mid)
+            f.f.ends.br <- c(f.f.Mp0.br, f.f.mid)
+        }
+
+        if(!any(is.na(f.f.ends)) && (sign(f.f.ends[1]) * sign(f.f.ends[2])) <= 0) {
+            upperzero <- uniroot(f.f, ends, f.lower=f.f.ends[1], f.upper=f.f.ends[2], ...)
+        #} else if (!any(is.na(f.f.ends.br)) && (sign(f.f.ends.br[1]) * sign(f.f.ends.br[2])) <= 0) {
+            #upperzero <- uniroot(f.f, ends.br, f.lower=f.f.ends.br[1], f.upper=f.f.ends.br[2], ...)
+        } else {
+            stop('bad news')
+        }
+        #upperzero <- uniroot(f.f, ends, ...)
         res <- list(u0=upperzero$root)
     }
 
@@ -77,7 +108,8 @@ search.brid.regular <- function(f.n, f.f,
     lowermin <- optimize(f.n, loweroptim.int, ...)
 
     # lower min exists if objective negative in left half or positive in right half
-    if(sign(upperzero.int[1] - lowermin$minimum) * lowermin$objective < 0) {
+    #if(half.sign * lowermin$objective < 0) {
+    if(sign(mid - lowermin$minimum) * lowermin$objective < 0) {
         lowerzero <- uniroot(f.n, sort(c(lowerzero.end, lowermin$minimum)), ...)
         res <- c(res, list(l0=lowerzero$root))
     }
@@ -95,17 +127,18 @@ search.brid.regular <- function(f.n, f.f,
 #' @param eps minimum distance from endpoints to search at
 #' @param ... additional arguments to criterion function (?)
 #' @importFrom stats uniroot
-search.brid.tight <- function(f, lo, mid, hi, eps=1e-6, ...) {
-    midm <- f(mid-eps)
-    midp <- f(mid+eps)
+search.brid.tight <- function(f.n, f.f, lo, mid, hi, eps=1e-6, ...) {
+    midm <- f.f(mid-eps)
+    midp <- f.f(mid+eps)
+    cat(sprintf('%s %s %s %s\n', mid-eps, midm, mid+eps, midp))
     if(midm > midp) {
-        upperzero <- uniroot(f, c(mid-eps, mid+eps),
+        upperzero <- uniroot(f.f, c(mid-eps, mid+eps),
                              f.lower=midm, f.upper=midp)
         #res <- list(u0=mid)
         res <- list(u0=upperzero$root)
     } else {
-        lowerzero <- uniroot(f, c(lo, mid-eps))
-        upperzero <- uniroot(f, c(mid+eps, hi))
+        lowerzero <- uniroot(f.f, c(lo, mid-eps))
+        upperzero <- uniroot(f.f, c(mid+eps, hi))
         res <- list(u0=upperzero$root, l0=lowerzero$root)
     }
     res
@@ -165,8 +198,10 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
 
     # we seem to run into numerical issues once Wr-Wl gap is too small
     # empirically, about 1e-7
-    if(abs(Wr-Wl) < 1e-7){
-        res <- search.brid.tight(bridcrit.f, lo, mid, hi, eps=eps)
+    #if(abs(Wr-Wl) < 1e-7){
+    #if(abs(Mp0 - mid) < 1e-7){
+    if(FALSE){
+        res <- search.brid.tight(bridcrit.f, bridcrit.f.normal, lo, mid, hi, eps=eps)
     } else {
         if(Wl < Wr) {
             # optimum in (weakly) upper half, Mp0 >= mid
@@ -196,45 +231,4 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
     }
 
     res
-}
-
-# @import data.table
-test_bridge <- function(xlseq=0, xrseq=10^seq(-5,5,length.out=1+1e2),
-                        Wlseq=0, Wrseq=10^seq(-10,5,length.out=1+1e2),
-                        ...) {
-    ncol <- 50
-    ngap <- 100
-    params <- CJ(xl=xlseq, xr=xrseq, Wl=Wlseq, Wr=Wrseq)
-    res <- sapply(1:nrow(params), function(i) {
-        if(i %% ngap == 0) cat('.')
-        if(i %% (ngap*ncol) == 0) cat(sprintf(' %3.2f%%\n', 100*i/nrow(params)))
-        tryCatch({
-            xl=params[i, xl]
-            xr=params[i, xr]
-            Wl=params[i, Wl]
-            Wr=params[i, Wr]
-            res <- search.brid(xl, xr, Wl, Wr, ...)
-            ''
-        }, error=function(e) {
-            #cat(sprintf('%s, %s: %s, %s: ', xl, xr, Wl, Wr))
-            #cat('\n')
-            #print(e$message)
-            #print(e$call)
-            e$message
-        })
-    })
-    cat('\n')
-    params[, res := res]
-    params
-}
-
-bridge_test_diagnostic <- function(dt) {
-    ggp <- ggplot(dt, aes(xr, Wr, fill=res)) +
-        theme(legend.position='bottom') +
-        scale_x_log10() +
-        scale_y_log10() +
-        coord_cartesian(expand=FALSE) +
-        scale_fill_brewer(palette='Dark2') +
-        geom_tile(alpha=0.75)
-    ggp
 }
