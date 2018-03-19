@@ -117,8 +117,9 @@ register_categorization <- function(simulation_digest,
 }
 
 #' @export
-find_simulation <- function(parameters_file=default_parameters_file, ...) {
-    parameters <- read_parameters(parameters_file)
+#find_simulation <- function(parameters_file=default_parameters_file, ...) {
+find_simulation <- function(parameters, ...) {
+    #parameters <- read_parameters(parameters_file)
     l <- list(...)
     
     # search parameters
@@ -129,4 +130,23 @@ find_simulation <- function(parameters_file=default_parameters_file, ...) {
     }
 
     parameters
+}
+
+#' @export
+find_simulation_by_standard_agent <- function(parameters, agents) {
+    `%subset%` <- function(x, y) all(x %in% y)
+    `%set.equal%` <- function(x, y) x %subset% y && y %subset% x
+
+    parameters <- Filter(function(p) p$agents %set.equal% agents, parameters)
+    parameters
+}
+
+#' @export
+deregister_simulations <- function(digests, parameters_file=default_parameters_file, ...) {
+    parameters <- read_parameters(parameters_file)
+
+    keep.names <- Filter(function(name) !(name %in% digests), names(parameters))
+    keep.parameters <- parameters[keep.names]
+
+    write_parameters(keep.parameters, file=parameters_file)
 }
