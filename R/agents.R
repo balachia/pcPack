@@ -67,6 +67,20 @@ make_standard_agent <- function(a=1, b=1, ...) {
 }
 
 #' @export
+Ops.standard.agent <- function(a1, a2) {
+    switch(.Generic[[1]],
+           `==` = {
+               if(inherits(a1, 'standard.agent') && inherits(a2, 'standard.agent')) {
+                   a1$a == a2$a && a1$b == a2$b
+               } else {
+                   FALSE
+               }
+           },
+           stop('Agent operator not implemented')
+           )
+}
+
+#' @export
 print.standard.agent <- function(ag, ...) {
     cat(sprintf('standard agent :: a %s :: b %s\n', ag$a, ag$b))
 }
