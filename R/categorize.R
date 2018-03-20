@@ -19,6 +19,58 @@ agglom <- function(xs) {
     paste0(res, collapse=',')
 }
 
+process_reports <- function(f, nsim, max.iter) {
+    done <- integer(length=nsim)
+    ks <- vector(mode='list', length=nsim)
+    while(!isIncomplete(f)) {
+        msg <- readBin(f, 'character')
+        msgs <- as.numeric(strsplit(msg, ':', fixed=TRUE)[[1]])
+        simi <- msgs[1]
+        done[simi] <- msgs[2]
+        ks[[simi]] <- c(ks[[simi]], msgs[3])
+        if(msgs[2] == max.iter) {
+            cat('\r', rep(' ', getOption('width')), sep='', collapse='')
+            cat(sprintf('\r(%5.1f%%) %d %s\n',
+                        100*sum(done==max.iter) / nsim,
+                        simi,
+                        agglom(sort(unique(ks[[simi]])))))
+            #cat('\r', simi, ' ', agglom(sort(unique(ks[[simi]]))), '\n',
+            #    sep='', collapse='')
+        }
+        curr <- which((done>0) & (done<max.iter))
+        cat('\r', paste0(sprintf('%d %6.2f%%', curr, 100*done[curr]/max.iter),
+                         collapse=', '),
+            sep='')
+    }
+    cat('\n')
+    parallel:::mcexit()
+}
+
+make_report_function <- function(f, simi) {
+    rf <- function(i, k) {
+        writeBin(sprintf('%d:%d:%d', simi, i, k), f)
+    }
+    rf
+}
+
+#' @export
+make_categories_runner <- function(positions, nsim=NULL, max.iter=NULL, ...) {
+    nsim <- if(is.null(nsim)) max(positions$sim) else nsim
+    niter <- if(is.null(max.iter)) max(positions$id) else max.iter
+
+    f <- fifo(tempfile(), open="w+b", blocking=T)
+    if (inherits(parallel:::mcfork(), "masterProcess")) {
+        process_reports(f, nsim, max.iter=niter)
+    }
+    result <- parallel::mclapply(1:nsim, function(simi) {
+            reportf <- make_report_function(f, simi)
+            make_categories(positions=positions[sim==simi],
+                            reportf=reportf, ...)
+        })
+    close(f)
+    result
+}
+
 #' Make 'optimal' categories for a set of positions
 #'
 #' Finds the optimal number and position of categories for the evolution of a market
@@ -29,12 +81,12 @@ agglom <- function(xs) {
 #' @param method information criterion method
 #' @param ... captire additional arguments
 #' @export
-make_categories <- function(positions,
-                            min.iter=positions[agent.id>1, min(id)],
-                            max.iter=positions[, max(id)],
-                            ic='AIC',
-                            verbose.prefix='',
-                            ...) {
+make_categories_old <- function(positions,
+                                min.iter=positions[agent.id>1, min(id)],
+                                max.iter=positions[, max(id)],
+                                ic='BIC',
+                                verbose.prefix='',
+                                ...) {
     # verbosity calculations
     base.line.format <- '\r%sITER %%%ds :: k %%-%ds'
     max.pad <- 2
@@ -46,7 +98,8 @@ make_categories <- function(positions,
     #ems <- rep(list(NULL), max.iter)
 
     for(i in min.iter:max.iter) {
-        x <- as.matrix(positions[id <= i, x])
+        #x <- as.matrix(positions[id <= i, x])
+        x <- positions[id <= i, x]
 
         #cat('\n')
 
@@ -91,11 +144,98 @@ make_categories <- function(positions,
     ems
 }
 
+#' Make 'optimal' categories for a set of positions
+#'
+#' Finds the optimal number and position of categories for the evolution of a market
+#' Optimal in the sense of information criterion
+#' @param positions set of market positions
+#' @param init.iter initial iteration to categorize (usually after insertions)
+#' @param max.iter maximum iteration to categorize
+#' @param package which clustering package to use
+#' @param reportf verbosity function (NULL to be quiet)
+#' @param ... capture additional arguments
+make_categories <- function(positions,
+                            min.iter=positions[agent.id>1, min(id)],
+                            max.iter=positions[, max(id)],
+                            package='mclust',
+                            reportf=NULL,
+                            ...) {
+    # assign NULL mixture to all uncategorized iterations
+    #ems <- rep(list(NULL), min.iter-1)
+    #ems <- rep(list(NULL), max.iter)
+    ems <- vector('list', max.iter)
+
+    for(i in min.iter:max.iter) {
+        x <- positions[id <= i, x]
+        xcat <- switch(package,
+                       'mclust'=categorize.mclust(x, ...),
+                       'EMCluster'=categorize.EMCluster(x, ...))
+
+        ems[[i]] <- xcat$mix
+
+        if(!is.null(reportf)) reportf(i, xcat$k)
+    }
+    ems
+}
+
+#' @import mclust
+categorize.mclust <- function(x, min.k=1, max.k=9, ...) {
+    .min.k <- min.k
+    .max.k <- max.k
+    res <- mclust::Mclust(x, G=.min.k:.max.k, ...)
+    while(res$G == .max.k) {
+        .min.k <- .max.k
+        .max.k <- 2*.max.k
+        res <- mclust::Mclust(x, G=.min.k:.max.k, ...)
+    }
+    list(mix=res, k=res$G)
+}
+
+
+categorize.EMCluster <- function(x, min.k=1, ic='BIC', ...) {
+    nx <- length(x)
+    mx <- as.matrix(x)
+
+    catf <- function(k) {
+        mix <- EMCluster::init.EM(mx, nclass=k, EMC=EMCluster::.EMC)
+        ic <- EMCluster::em.ic(mx, mix)
+        list(mix=mix, ic=ic)
+    }
+
+    # search space
+    k <- min.k
+    cata <- catf(k)
+
+    # do while we keep seeing IC improvements
+    repeat {
+        # make sure we have enough observations to estimate k means and variances (2*k dofs)
+        # plus 1 dof for optimization i think? otherwise we have collinearity
+        if(2*(k+1) > nx - 1) break
+        #if(k+1 > i/2) break
+
+        # search at higher k
+        catb <- catf(k+1)
+
+        # get IC differences
+        ics <- names(cata$ic)
+        ic.diffs <- sapply(ics, function(ic) catb$ic[[ic]] - cata$ic[[ic]])
+        names(ic.diffs) <- ics
+
+        # if ic improvement, accept bump in k
+        if(ic.diffs[ic] < 0) {
+            k <- k+1
+            cata <- catb
+        } else {
+            break
+        }
+    }
+    list(mix=cata$mix, k=k)
+}
+
 #' Wrapper around categorization function
 #'
 #' @param x positions to categorize
 #' @param k number of clusters to target
-#' @importFrom EMCluster init.EM em.ic
 categorize.em <- function(x, k) {
     mix <- EMCluster::init.EM(x, nclass=k, EMC=EMCluster::.EMC)
     ic <- EMCluster::em.ic(x, mix)
@@ -122,6 +262,30 @@ categorize_positions <- function(x, mix, peak.difference=TRUE) {
             }
         })
     res
+}
+
+get_goms.EMCluster <- function(x, mix, logp=TRUE) {
+    res <- sapply(1:mix$nclass, function(ci) {
+            cat.ps <- dmixmvn(as.matrix(x), emobj=NULL, log=logp,
+                              pi=mix$pi[ci],
+                              Mu=mix$Mu[ci,,drop=F],
+                              LTSigma=mix$LTSigma[ci,,drop=FALSE])
+            #if(peak.difference) {
+            #    cat.ps - max(cat.ps)
+            #} else {
+            #    cat.ps
+            #}
+            cat.ps
+        })
+    res
+}
+
+get_goms.mclust <- function(x, mix, logp=TRUE) {
+    if(logp) {
+        log(mix$z)
+    } else {
+        mix$z
+    }
 }
 
 #' Find GOM for two two categories

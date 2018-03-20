@@ -11,6 +11,7 @@ Imports:
     data.table,
     purrr,
     EMCluster,
+    mclust,
     ggplot2
 RoxygenNote: 6.0.1.9000
 Suggests:

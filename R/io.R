@@ -53,11 +53,17 @@ print.simulation_listing <- function(x, ...) {
         cat(sprintf('NA\n'))
     }
 
-    cat(sprintf('\t# cats:\t%d\n', length(x$categorizations)))
+    cat(sprintf('\tcats:'))
+    if(length(x$categorizations) > 0) cat('\r') else cat('\n')
+    for(catl in x$categorizations) { cat('\t\t'); print(catl) }
+
+    #cat(sprintf('\t# cats:\t%d\n', length(x$categorizations)))
 }
 
 #' @export
-make_categorization_listing <- function(simulation_digest, ic,
+make_categorization_listing <- function(simulation_digest, package,
+                                        overwrite=FALSE,
+                                        ic=NA,
                                         min.iter=NA, max.iter=NA,
                                         min.k=1, max.k=Inf,
                                         ...) {
@@ -66,6 +72,7 @@ make_categorization_listing <- function(simulation_digest, ic,
 
     res$packageVersion <- packageVersion('prodcatpack')
     res$simulation_digest <- simulation_digest
+    res$package <- package
     res$ic <- ic
     res$min.iter <- min.iter
     res$max.iter <- max.iter
@@ -76,6 +83,26 @@ make_categorization_listing <- function(simulation_digest, ic,
     res$digest <- digest::digest(res)
 
     res
+}
+
+#' @export
+print.categorization_listing <- function(x, full=FALSE, ...) {
+    if(full) cat(sprintf('%s (%s) ', x$digest, x$simulation_digest))
+    cat(sprintf('%s', x$package))
+    if(!is.na(x$ic)) cat(sprintf(', ic %s', x$ic))
+    if(!is.na(x$min.iter) || !is.na(x$max.iter)) {
+        cat(', iter ')
+        if(!is.na(x$min.iter)) cat(sprintf('%.0f.', x$min.iter))
+        cat('.')
+        if(!is.na(x$max.iter)) cat(sprintf('.%.0f', x$max.iter))
+    }
+    if((x$min.k > 1) || is.finite(x$max.k)) {
+        cat(', k ')
+        if(x$min.k > 1) cat(sprintf('%.0f.', x$min.k))
+        cat('.')
+        if(is.finite(x$max.k)) cat(sprintf('.%.0f', x$max.k))
+    }
+    cat('\n')
 }
 
 #' @export
@@ -107,10 +134,14 @@ register_simulation <- function(parameters_file=default_parameters_file,
 #' @export
 register_categorization <- function(simulation_digest,
                                     parameters_file=default_parameters_file,
+                                    overwrite=FALSE,
                                     ...) {
     parameters <- read_parameters(parameters_file)
     cat_listing <- make_categorization_listing(simulation_digest=simulation_digest, ...)
-    parameters[[simulation_digest]]$categorizations <- c(parameters[[simulation_digest]]$categorizations, list(cat_listing))
+    if( overwrite || is.null(parameters[[simulation_digest]]$categorizations[[cat_listing$digest]]) ) {
+        parameters[[simulation_digest]]$categorizations[[cat_listing$digest]] <- cat_listing
+    }
+    #parameters[[simulation_digest]]$categorizations <- c(parameters[[simulation_digest]]$categorizations, list(cat_listing))
 
     write_parameters(parameters, file=parameters_file)
     cat_listing
