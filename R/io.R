@@ -1,3 +1,4 @@
+default_data_dir <- '../data/'
 default_parameters_file <- '../data/parameters.Rds'
 
 #' @export
@@ -180,4 +181,33 @@ deregister_simulations <- function(digests, parameters_file=default_parameters_f
     keep.parameters <- parameters[keep.names]
 
     write_parameters(keep.parameters, file=parameters_file)
+}
+
+category_to_simulation_map <- function(parameters_file=default_parameters_file) {
+    params <- read_parameters(file=parameters_file)
+    cats <- list()
+    for(siml in params) {
+        for(catl in siml$categorizations) cats[[catl$digest]] <- siml$digest
+    }
+    cats
+}
+
+#' @export
+load_simulation_data <- function(digest,
+                                 parameters_file=default_parameters_file,
+                                 data_dir=default_data_dir) {
+    siml <- read_parameters(file=parameters_file)[[digest]]
+    dat <- readRDS(sprintf('%s/simulations/%s.Rds', data_dir, digest))
+    list(listing=siml, data=dat)
+}
+
+#' @export
+load_categorization_data <- function(digest,
+                                 parameters_file=default_parameters_file,
+                                 data_dir=default_data_dir) {
+    sim_digest <- category_to_simulation_map(parameters_file)[[digest]]
+    catl <- read_parameters(file=parameters_file)[[sim_digest]]$categorizations[[digest]]
+    dat <- readRDS(sprintf('%s/categorizations/%s.Rds', data_dir, digest))
+    sim_dat <- load_simulation_data(sim_digest, parameters_file=parameters_file, data_dir=data_dir)
+    list(listing=catl, data=dat, simulation=sim_dat)
 }

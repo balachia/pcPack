@@ -78,79 +78,6 @@ make_categories_runner <- function(positions, nsim=NULL, max.iter=NULL, ...) {
 #' @param positions set of market positions
 #' @param init.iter initial iteration to categorize (usually after insertions)
 #' @param max.iter maximum iteration to categorize
-#' @param method information criterion method
-#' @param ... captire additional arguments
-#' @export
-make_categories_old <- function(positions,
-                                min.iter=positions[agent.id>1, min(id)],
-                                max.iter=positions[, max(id)],
-                                ic='BIC',
-                                verbose.prefix='',
-                                ...) {
-    # verbosity calculations
-    base.line.format <- '\r%sITER %%%ds :: k %%-%ds'
-    max.pad <- 2
-    line.format <- sprintf(base.line.format, verbose.prefix, 1+floor(log10(max.iter)), max.pad)
-
-    # assign NULL mixture to all uncategorized iterations
-    ems <- rep(list(NULL), min.iter-1)
-    ks <- NULL
-    #ems <- rep(list(NULL), max.iter)
-
-    for(i in min.iter:max.iter) {
-        #x <- as.matrix(positions[id <= i, x])
-        x <- positions[id <= i, x]
-
-        #cat('\n')
-
-        # search space
-        k <- 1
-        cat(sprintf(line.format, i, agglom(c(ks, k))))
-        #mixa <- EMCluster::init.EM(x, nclass=k, EMC=EMCluster::.EMC)
-        #ic.a <- EMCluster::em.ic(x,mixa)
-        cata <- categorize.em(x, k)
-
-        # do while we keep seeing IC improvements
-        repeat {
-            if(k+1 > i/2) break
-
-            cat(sprintf(line.format, i, agglom(c(ks, k))))
-            # search at higher k
-            #mixb <- EMCluster::init.EM(x, nclass=k+1, EMC=EMCluster::.EMC)
-            #ic.b <- EMCluster::em.ic(x,mixb)
-            catb <- categorize.em(x, k+1)
-
-            # get IC differences
-            ics <- names(cata$ic)
-            ic.diffs <- sapply(ics, function(ic) catb$ic[[ic]] - cata$ic[[ic]])
-            names(ic.diffs) <- ics
-
-            if(ic.diffs[ic] < 0) {
-                k <- k+1
-                cata <- catb
-                #mixa <- mixb
-                #ic.a <- ic.b
-            } else {
-                break
-            }
-        }
-
-        ems <- c(ems, list(cata$mix))
-        ks <- sort(unique(c(ks, k)))
-        if(nchar(agglom(ks)) + 3 > max.pad) max.pad <- nchar(agglom(ks)) + 3
-        line.format <- sprintf(base.line.format, verbose.prefix, 1+floor(log10(max.iter)), max.pad)
-        #ems[[i]] <- list(cata$mixa)
-    }
-    ems
-}
-
-#' Make 'optimal' categories for a set of positions
-#'
-#' Finds the optimal number and position of categories for the evolution of a market
-#' Optimal in the sense of information criterion
-#' @param positions set of market positions
-#' @param init.iter initial iteration to categorize (usually after insertions)
-#' @param max.iter maximum iteration to categorize
 #' @param package which clustering package to use
 #' @param reportf verbosity function (NULL to be quiet)
 #' @param ... capture additional arguments
@@ -232,16 +159,6 @@ categorize.EMCluster <- function(x, min.k=1, ic='BIC', ...) {
     list(mix=cata$mix, k=k)
 }
 
-#' Wrapper around categorization function
-#'
-#' @param x positions to categorize
-#' @param k number of clusters to target
-categorize.em <- function(x, k) {
-    mix <- EMCluster::init.EM(x, nclass=k, EMC=EMCluster::.EMC)
-    ic <- EMCluster::em.ic(x, mix)
-    list(mix=mix, ic=ic)
-}
-
 #' Assigns category grade of membership to positions
 #'
 #' @param x positions
@@ -264,6 +181,29 @@ categorize_positions <- function(x, mix, peak.difference=TRUE) {
     res
 }
 
+#' @export
+get_goms <- function(x, mix, logp=TRUE) {
+    mixps <- get_mix_parameters(mix)
+    sapply(1:mixps$k, function(i) {
+            ps <- dnorm(x, mean=mixps$mean[i], sd=mixps$sd[i], log=logp)
+            peak <- dnorm(mixps$mean[i], mean=mixps$mean[i], sd=mixps$sd[i], log=logp)
+            if(logp) {
+                ps - peak
+            } else {
+                ps/peak
+            }
+        })
+}
+
+get_mix_parameters <- function(mix) UseMethod('get_mix_parameters')
+
+get_mix_parameters.Mclust <- function(mix) {
+    list(k=mix$G,
+         prob=mix$parameters$pro,
+         mean=mix$parameters$mean,
+         sd=rep(sqrt(mix$parameters$variance$sigmasq), length.out=mix$G))
+}
+
 get_goms.EMCluster <- function(x, mix, logp=TRUE) {
     res <- sapply(1:mix$nclass, function(ci) {
             cat.ps <- dmixmvn(as.matrix(x), emobj=NULL, log=logp,
@@ -281,6 +221,13 @@ get_goms.EMCluster <- function(x, mix, logp=TRUE) {
 }
 
 get_goms.mclust <- function(x, mix, logp=TRUE) {
+    sapply(1:mix$G, function(i) {
+            mean <- mix$parameters$mean[i]
+            sigma <- sqrt(mix$parameters$variance$sigmasq[i])
+            ps <- dnorm(x, mean=mean, sigma=sigma, log=logp)
+            peak <- dnorm(mean, mean=mean, sigma=sigma, log=logp)
+
+        })
     if(logp) {
         log(mix$z)
     } else {
@@ -288,7 +235,7 @@ get_goms.mclust <- function(x, mix, logp=TRUE) {
     }
 }
 
-#' Find GOM for two two categories
+#' Find GOM for top two categories
 #'
 #' @param goms grades of membership for all categories
 #' @return list(goms=GOM for top, second categories; ords=category ids)
@@ -300,7 +247,7 @@ top_two_categories <- function(goms) {
             ord <- order(goms[ri,], decreasing=TRUE)
             c(goms[ri,ord], ord) }
         )
-    gom_ords <- t(gom_ords)
+    goms_ords <- t(goms_ords)
 
     #if(iter.cats$nclass > 1) {
     if(ncol(goms) > 1) {
