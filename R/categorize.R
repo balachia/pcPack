@@ -229,8 +229,8 @@ get_goms.mclust <- function(x, mix, logp=TRUE) {
     sapply(1:mix$G, function(i) {
             mean <- mix$parameters$mean[i]
             sigma <- sqrt(mix$parameters$variance$sigmasq[i])
-            ps <- dnorm(x, mean=mean, sigma=sigma, log=logp)
-            peak <- dnorm(mean, mean=mean, sigma=sigma, log=logp)
+            ps <- dnorm(x, mean=mean, sd=sigma, log=logp)
+            peak <- dnorm(mean, mean=mean, sd=sigma, log=logp)
 
         })
     if(logp) {
