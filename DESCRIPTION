@@ -12,7 +12,8 @@ Imports:
     purrr,
     EMCluster,
     mclust,
-    ggplot2
+    ggplot2,
+    matrixStats
 RoxygenNote: 6.0.1.9000
 Suggests:
     testthat,
