@@ -25,6 +25,7 @@ pdist <- function(x,y) {
 #' distance to closest neighbor
 #'
 #' @export
+#' @importFrom matrixStats rowOrderStats
 neighbor_distance <- function(x, min.n=1, max.n=Inf) {
     ds <- pdist(x,x)
     diag(ds) <- Inf
