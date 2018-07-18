@@ -19,6 +19,18 @@ dct <- function(delta) 1 / (delta^2)
 #' @param delta distance from competitor
 dct.logged <- function(delta) -2*log(delta)
 
+ct.Madj.open <- ct
+ct.Mpadj.open <- dct
+ct.Madj.brid <- function(delta, dbar) ct(delta) + ct(dbar)
+ct.Mpadj.brid <- function(delta, dbar) dct(delta) - dct(dbar)
+
+############################################################
+# Helpers
+
+#' Squash all arguments to 0
+#'
+squash <- function(...) 0
+
 ############################################################
 # UTILITY
 
@@ -64,10 +76,12 @@ u <- function(m, a=1, b=1) a * m - exp(-b * m)
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
 #' @param ... capture additional arguments
-Euopen <- function(delta, W0, sigma=1, a=1, b=1, ...) {
-    exparg <- exparg.open(delta, W0=W0, sigma=sigma, b=b)
+Euopen <- function(delta, W0, sigma=1, a=1, b=1, Madj=squash, ...) {
+    #exparg <- exparg.open(delta, W0=W0, sigma=sigma, b=b)
+    exparg <- exparg.open(delta, W0=W0, sigma=sigma, b=b, Madj=Madj, ...)
     #a * (W0 + ct(delta)) - exp(-b * (W0 + c(delta)) + 0.5 * b^2 * sigma^2 * delta)
-    a * (W0 + ct(delta)) - exp(exparg)
+    #a * (W0 + ct(delta)) - exp(exparg)
+    a * (W0 + Madj(delta)) - exp(exparg)
 }
 
 #' Expected utility on bridge interval
@@ -81,10 +95,12 @@ Euopen <- function(delta, W0, sigma=1, a=1, b=1, ...) {
 #' @param a utility function *a* parameter
 #' @param b utility function *b* parameter
 #' @param ... capture additional arguments
-Eubrid <- function(delta, xl, xr, Wl, Wr, sigma=1, a=1, b=1, ...) {
-    exparg <- exparg.brid(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b)
+Eubrid <- function(delta, xl, xr, Wl, Wr, sigma=1, a=1, b=1, Madj=squash, ...) {
+    #exparg <- exparg.brid(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b)
+    exparg <- exparg.brid(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b, Madj=Madj, ...)
     dbar <- xr - xl - delta
-    arg <- delta * (Wr - Wl) / (xr - xl) + Wl + ct(delta) + ct(dbar)
+    #arg <- delta * (Wr - Wl) / (xr - xl) + Wl + ct(delta) + ct(dbar)
+    arg <- delta * (Wr - Wl) / (xr - xl) + Wl + Madj(delta, dbar)
     a * arg - exp(exparg)
 }
 
@@ -162,21 +178,29 @@ euratio.normal <- function(exparg, a=1, b=1, ...) {
 # logged criterion is 0 = -log M' + log(1/2 V') + log( -Ed2u/Edu )
 # we denote these as nlogMp + loghVp + logEurat()
 
-exparg.open <- function(delta, W0, sigma=1, b=1) {
-    exparg <- -b * (W0 + ct(delta)) + 0.5 * b^2 * sigma^2 * delta
+#' Calculate Eu exponential argument on open interval
+#'
+exparg.open <- function(delta, W0, sigma=1, b=1, Madj=squash) {
+    exparg <- -b * (W0 + ct(delta) + Madj) + 0.5 * b^2 * sigma^2 * delta
     exparg
 }
 
-exparg.brid <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, ...) {
+#' Calculate Eu exponential argument on bridge interval
+#'
+exparg.brid <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, Madj=squash, ...) {
     dbar <- xr - xl - delta
-    exparg <- -b * (Wl + ct(delta) + ct(dbar) + delta*((Wr-Wl)/(xr-xl))) + 
+    #exparg <- -b * (Wl + ct(delta) + ct(dbar) + delta*((Wr-Wl)/(xr-xl))) + 
+    exparg <- -b * (Wl + Madj(delta, dbar) + delta*((Wr-Wl)/(xr-xl))) + 
         0.5 * b^2 * sigma^2 * ((dbar * delta) / (xr - xl))
     exparg
 }
 
-opencrit.normal <- function(delta, W0, sigma=1, b=1, debug=FALSE, ...) {
+#' Calculate open interval criterion
+#'
+opencrit.normal <- function(delta, W0, sigma=1, b=1, Mpadj=squash, debug=FALSE, ...) {
     exparg <- exparg.open(delta, W0=W0, sigma=sigma, b=b)
-    Mp <- dct(delta)
+    #Mp <- dct(delta)
+    Mp <- Mpadj(delta)
     hVp <- 0.5 * sigma^2
     eurat <- euratio.normal(exparg, b=b, ...)
     crit <- Mp - hVp*eurat
@@ -186,9 +210,12 @@ opencrit.normal <- function(delta, W0, sigma=1, b=1, debug=FALSE, ...) {
     crit
 }
 
-opencrit.logged <- function(delta, W0, sigma=1, b=1, debug=FALSE, ...) {
+#' Calculate open interval criterion (logged)
+#'
+opencrit.logged <- function(delta, W0, sigma=1, b=1, Mpadj=squash, debug=FALSE, ...) {
     exparg <- exparg.open(delta, W0=W0, sigma=sigma, b=b)
-    logMp <- dct.logged(delta)
+    #logMp <- dct.logged(delta)
+    logMp <- log(Mpadj(delta))
     loghVp <- 2*log(sigma) - log(2)
     eurat <- euratio.logged(exparg, b=b, ...)
     crit <- logMp - loghVp - eurat
@@ -198,10 +225,13 @@ opencrit.logged <- function(delta, W0, sigma=1, b=1, debug=FALSE, ...) {
     crit
 }
 
-bridcrit.normal <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, debug=FALSE, ...) {
+#' Calculate bridge interval criterion
+#'
+bridcrit.normal <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, Mpadj=squash, debug=FALSE, ...) {
     dbar <- xr - xl - delta
     exparg <- exparg.brid(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b, ...)
-    Mp <- ((Wr-Wl)/(xr-xl)) + dct(delta) - dct(dbar)
+    #Mp <- ((Wr-Wl)/(xr-xl)) + dct(delta) - dct(dbar)
+    Mp <- ((Wr-Wl)/(xr-xl)) + Mpadj(delta, dbar)
     hVp <- 0.5 * sigma^2 * (dbar-delta)/(xr-xl)
     eurat <- euratio.normal(exparg, b=b, ...)
     crit <- Mp - hVp*eurat
@@ -211,12 +241,15 @@ bridcrit.normal <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, debug=FALSE, ..
     crit
 }
 
-bridcrit.logged <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, debug=FALSE, ...) {
+#' Calculate bridge interval criterion (logged)
+#'
+bridcrit.logged <- function(delta, xl, xr, Wl, Wr, sigma=1, b=1, Mpadj=squash, debug=FALSE, ...) {
     dbar <- xr - xl - delta
     # flip signs in back half of search space
     flip <- sign(dbar-delta)
     exparg <- exparg.brid(delta, xl=xl, xr=xr, Wl=Wl, Wr=Wr, sigma=sigma, b=b, ...)
-    Mp <- ((Wr-Wl)/(xr-xl)) + dct(delta) - dct(dbar)
+    #Mp <- ((Wr-Wl)/(xr-xl)) + dct(delta) - dct(dbar)
+    Mp <- ((Wr-Wl)/(xr-xl)) + Mpadj(delta, dbar)
     logMp <- ifelse(flip*Mp>0, log(flip*Mp), -Inf)
     loghVp <- 2*log(sigma) - log(2) - log(xr-xl) + log(flip*(dbar-delta))
     eurat <- euratio.logged(exparg, b=b, ...)

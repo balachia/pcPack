@@ -38,9 +38,10 @@ search.open <- function(W0, lo=1e-4, hi=1e5, log=TRUE, ...) {
 #' @param xr right endpoint
 #' @param Wl value at left endpoint
 #' @param Wr value at right endpoint
-bridge.Mp.crit <- function(delta, xl, xr, Wl, Wr) {
+bridge.Mp.crit <- function(delta, xl, xr, Wl, Wr, Mpadj=function(...) 0) {
     dbar <- xr - xl - delta
-    (Wr-Wl)/(xr-xl) + dct(delta) - dct(dbar)
+    #(Wr-Wl)/(xr-xl) + dct(delta) - dct(dbar)
+    (Wr-Wl)/(xr-xl) + Mpadj(delta, dbar)
 }
 
 #' Regular search procedure for bridge interval.
@@ -133,13 +134,13 @@ search.brid.tight <- function(f.n, f.f, lo, mid, hi, eps=1e-6, ...) {
     cat(sprintf('%s %s %s %s\n', mid-eps, midm, mid+eps, midp))
     if(midm > midp) {
         upperzero <- uniroot(f.f, c(mid-eps, mid+eps),
-                             f.lower=midm, f.upper=midp)
+                             f.lower=midm, f.upper=midp, ...)
         #res <- list(u0=mid)
         res <- list(u0=upperzero$root)
     } else {
         lowerzero <- uniroot(f.f, c(lo, mid-eps))
         upperzero <- uniroot(f.f, c(mid+eps, hi))
-        res <- list(u0=upperzero$root, l0=lowerzero$root)
+        res <- list(u0=upperzero$root, l0=lowerzero$root, ...)
     }
     res
 }
@@ -176,14 +177,14 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
     mid <- (xr-xl)/2
 
     # look for Mp crossover
-    Mplo <- bridge.Mp.crit(lo, xl, xr, Wl, Wr)
-    Mphi <- bridge.Mp.crit(hi, xl, xr, Wl, Wr)
+    Mplo <- bridge.Mp.crit(lo, xl, xr, Wl, Wr, ...)
+    Mphi <- bridge.Mp.crit(hi, xl, xr, Wl, Wr, ...)
     if(Mplo * Mphi >= 0) {
         stop('Mp has equal sign near both endpoints: probably eps too big')
     } else {
         urMp <- uniroot(bridge.Mp.crit, c(lo, hi),
                         f.lower=Mplo, f.upper=Mphi,
-                        xl=xl, xr=xr, Wl=Wl, Wr=Wr)
+                        xl=xl, xr=xr, Wl=Wl, Wr=Wr, ...)
         Mp0 <- urMp$root
     }
 
@@ -201,7 +202,7 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
     #if(abs(Wr-Wl) < 1e-7){
     #if(abs(Mp0 - mid) < 1e-7){
     if(FALSE){
-        res <- search.brid.tight(bridcrit.f, bridcrit.f.normal, lo, mid, hi, eps=eps)
+        res <- search.brid.tight(bridcrit.f, bridcrit.f.normal, lo, mid, hi, eps=eps, ...)
     } else {
         if(Wl < Wr) {
             # optimum in (weakly) upper half, Mp0 >= mid

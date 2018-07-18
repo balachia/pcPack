@@ -63,6 +63,11 @@ make_standard_agent <- function(a=1, b=1, ...) {
     ag$b <- b
     #ag$plan <- create_plans_table(n+1)
 
+    ag$Madj.open <- ct.Madj.open
+    ag$Mpadj.open <- ct.Mpadj.open
+    ag$Madj.brid <- ct.Madj.brid
+    ag$Mpadj.brid <- ct.Mpadj.brid
+
     ag
 }
 
@@ -126,19 +131,31 @@ agentUpdate.standard.agent <- function(agent, update.idx, intervals, ...) {
         if(is.infinite(xl)) {
             # open left interval
             W <- intervals[idx, Wr]
-            delta1 <- search.open(W, a=agent$a, b=agent$b, ...)$root
-            Eu1 <- Euopen(delta1, W0=W, a=agent$a, b=agent$b, ...)
+            delta1 <- search.open(W, a=agent$a, b=agent$b,
+                                  Madj=agent$Madj.open, Mpadj=agent$Mpadj.open,
+                                  ...)$root
+            Eu1 <- Euopen(delta1, W0=W, a=agent$a, b=agent$b,
+                          Madj=agent$Madj.open,
+                          ...)
         } else if(is.infinite(xr)) {
             # open right interval
             W <- intervals[idx, Wl]
-            delta1 <- search.open(W, a=agent$a, b=agent$b, ...)$root
-            Eu1 <- Euopen(delta1, W0=W, a=agent$a, b=agent$b, ...)
+            delta1 <- search.open(W, a=agent$a, b=agent$b,
+                                  Madj=agent$Madj.open, Mpadj=agent$Mpadj.open,
+                                  ...)$root
+            Eu1 <- Euopen(delta1, W0=W, a=agent$a, b=agent$b,
+                          Madj=agent$Madj.open,
+                          ...)
         } else {
             # bridge interval
             Wl <- intervals[idx, Wl]
             Wr <- intervals[idx, Wr]
-            delta1 <- search.brid(xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b, ...)$u0
-            Eu1 <- Eubrid(delta1, xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b, ...)
+            delta1 <- search.brid(xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b,
+                                  Madj=agent$Madj.brid, Mpadj=agent$Mpadj.brid,
+                                  ...)$u0
+            Eu1 <- Eubrid(delta1, xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b,
+                          Madj=agent$Madj.brid,
+                          ...)
         }
         plan[idx, `:=`(delta=delta1, Eu=Eu1)]
     }
