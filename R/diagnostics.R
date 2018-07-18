@@ -114,7 +114,8 @@ plot_crit <- function(critfs, n=1e3+1, ylim=0.95, xl=0, xr=1, midpoint=1, ...) {
         critf <- critfs[[i]]
         ys <- critf(xs, xl=xl, xr=xr, debug=TRUE, ...)
         cols <- c('crit', 'Mp', 'hVp', 'eurat', 'hVpeurat')
-        ysdt <- rbindlist(map(cols, ~ data.table(x=xs, y=ys[[.]], type=., func=i)))
+        ysdt <- rbindlist(lapply(cols, function(col) data.table(x=xs, y=ys[[col]], type=col, func=i)))
+        #ysdt <- rbindlist(map(cols, ~ data.table(x=xs, y=ys[[.]], type=., func=i)))
         ysdts <- c(ysdts, list(ysdt))
     }
     ysdt <- rbindlist(ysdts)

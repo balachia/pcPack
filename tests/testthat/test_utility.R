@@ -15,9 +15,17 @@ test_that('Expected utility ratio is correct', {
 })
 
 test_that('exparg is built correctly', {
-    expect_equal(exparg.open(1, 0), 3/2)
-    expect_equal(exparg.open(2, 1, sigma=2, b=2), 15)
+    # default squash
+    expect_equal(exparg.open(1, 0), 1/2)
+    expect_equal(exparg.open(2, 1, sigma=2, b=2), 14)
 
-    expect_equal(exparg.brid(1, 1, 5, 1, 2), 11/24)
-    expect_equal(exparg.brid(1, 1, 5, 1, 2, b=2, sigma=2), 37/6)
+    expect_equal(exparg.brid(1, 1, 5, 1, 2), -7/8)
+    expect_equal(exparg.brid(1, 1, 5, 1, 2, b=2, sigma=2), 7/2)
+
+    # default competition function
+    expect_equal(exparg.open(1, 0, Madj=ct.Madj.open), 3/2)
+    expect_equal(exparg.open(2, 1, sigma=2, b=2, Madj=ct.Madj.open), 15)
+
+    expect_equal(exparg.brid(1, 1, 5, 1, 2, Madj=ct.Madj.brid), 11/24)
+    expect_equal(exparg.brid(1, 1, 5, 1, 2, b=2, sigma=2, Madj=ct.Madj.brid), 37/6)
 })

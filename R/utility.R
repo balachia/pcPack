@@ -181,7 +181,8 @@ euratio.normal <- function(exparg, a=1, b=1, ...) {
 #' Calculate Eu exponential argument on open interval
 #'
 exparg.open <- function(delta, W0, sigma=1, b=1, Madj=squash) {
-    exparg <- -b * (W0 + ct(delta) + Madj) + 0.5 * b^2 * sigma^2 * delta
+    #exparg <- -b * (W0 + ct(delta)) + 0.5 * b^2 * sigma^2 * delta
+    exparg <- -b * (W0 + Madj(delta)) + 0.5 * b^2 * sigma^2 * delta
     exparg
 }
 

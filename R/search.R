@@ -38,7 +38,7 @@ search.open <- function(W0, lo=1e-4, hi=1e5, log=TRUE, ...) {
 #' @param xr right endpoint
 #' @param Wl value at left endpoint
 #' @param Wr value at right endpoint
-bridge.Mp.crit <- function(delta, xl, xr, Wl, Wr, Mpadj=function(...) 0) {
+bridge.Mp.crit <- function(delta, xl, xr, Wl, Wr, Mpadj=function(...) 0, ...) {
     dbar <- xr - xl - delta
     #(Wr-Wl)/(xr-xl) + dct(delta) - dct(dbar)
     (Wr-Wl)/(xr-xl) + Mpadj(delta, dbar)
@@ -69,7 +69,7 @@ search.brid.regular <- function(f.n, f.f,
     half.sign <- sign(Mp0 - mid)
 
     # find zero @ higher end
-    f.n.vals <- f.n(upperzero.int)
+    f.n.vals <- f.n(upperzero.int, ...)
     if(sign(prod(f.n.vals)) < 0) {
         # if upper zero is between Mp0 (w/ numerical error!) and endpoint
         upperzero <- uniroot(f.n, upperzero.int, f.lower=f.n.vals[1], f.upper=f.n.vals[2], ...)
@@ -78,9 +78,9 @@ search.brid.regular <- function(f.n, f.f,
         # else, check between midpoint and Mp0
         # but! due to numerical error, f.n(Mp0) and f.f(Mp0) may not share sign
         Mp0.br <- Mp0 + Mp0-mid
-        f.f.mid <- f.f(mid)
-        f.f.Mp0 <- f.f(Mp0)
-        f.f.Mp0.br <- f.f(Mp0.br)
+        f.f.mid <- f.f(mid, ...)
+        f.f.Mp0 <- f.f(Mp0, ...)
+        f.f.Mp0.br <- f.f(Mp0.br, ...)
 
         if(half.sign > 0) {
             ends <- c(mid, Mp0)
@@ -129,8 +129,8 @@ search.brid.regular <- function(f.n, f.f,
 #' @param ... additional arguments to criterion function (?)
 #' @importFrom stats uniroot
 search.brid.tight <- function(f.n, f.f, lo, mid, hi, eps=1e-6, ...) {
-    midm <- f.f(mid-eps)
-    midp <- f.f(mid+eps)
+    midm <- f.f(mid-eps, ...)
+    midp <- f.f(mid+eps, ...)
     cat(sprintf('%s %s %s %s\n', mid-eps, midm, mid+eps, midp))
     if(midm > midp) {
         upperzero <- uniroot(f.f, c(mid-eps, mid+eps),
@@ -138,8 +138,8 @@ search.brid.tight <- function(f.n, f.f, lo, mid, hi, eps=1e-6, ...) {
         #res <- list(u0=mid)
         res <- list(u0=upperzero$root)
     } else {
-        lowerzero <- uniroot(f.f, c(lo, mid-eps))
-        upperzero <- uniroot(f.f, c(mid+eps, hi))
+        lowerzero <- uniroot(f.f, c(lo, mid-eps), ...)
+        upperzero <- uniroot(f.f, c(mid+eps, hi), ...)
         res <- list(u0=upperzero$root, l0=lowerzero$root, ...)
     }
     res
