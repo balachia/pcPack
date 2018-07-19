@@ -229,7 +229,9 @@ Ops.gom.agent <- function(a1, a2) {
 
 #' @export
 print.gom.agent <- function(ag, ...) {
-    cat(sprintf('gom agent :: a %s :: b %s\n', ag$a, ag$b))
+    logflag <- if(ag$logp) { 'log' } else { 'nolog' }
+    cat(sprintf('gom agent :: a %s :: b %s :: gw %s :: %s\n',
+                ag$a, ag$b, ag$gom.weight, logflag))
 }
 
 agentSetup.gom.agent <- function(agent, n, ...) {
