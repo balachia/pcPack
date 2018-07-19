@@ -18,7 +18,7 @@ make_parameters <- function(file=default_parameters_file) {
 
 
 #' @export
-make_simulation_listing <- function(nsim, niter, peaks, seed, agents, ...) {
+make_simulation_listing <- function(nsim, niter, peaks, seed, agents, tags=NULL, ...) {
     res <- list()
     class(res) <- 'simulation_listing'
 
@@ -35,6 +35,9 @@ make_simulation_listing <- function(nsim, niter, peaks, seed, agents, ...) {
     # attach empty categorization registry
     res$categorizations <- list()
 
+    # attach tags
+    res$tags <- tags
+
     res
 }
 
@@ -46,12 +49,18 @@ print.simulation_listing <- function(x, ...) {
     cat(sprintf('\titers:\t%d\n', x$niter))
     cat(sprintf('\tpeaks:\t%d\n', x$peaks))
     cat(sprintf('\tseed:\t%d\n', x$seed))
+    # agents
     cat(sprintf('\tagents:\t'))
     if(!is.null(x$agents)) {
         cat('\r')
         for(ag in x$agents) { cat('\t\t'); print(ag) }
     } else {
         cat(sprintf('NA\n'))
+    }
+    # tags
+    cat(sprintf('\ttags:\t'))
+    if(!is.null(x$tags)) {
+        cat(sprintf('%s\n', paste(x$tags, collapse=';')))
     }
 
     cat(sprintf('\tcats:'))
