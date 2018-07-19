@@ -285,7 +285,7 @@ top_two_categories <- function(goms) {
 ############################################################
 # GOM agent M(ean) adjustment
 
-gom.log.Madj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=TRUE, ...) {
+gom.log.Madj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=FALSE, ...) {
     res <- dnorm(xdelta, mean=gom.mean, sd=gom.sd, log=TRUE) - gom.peak
     if(verbose)
         cat(sprintf('Madj log, xdelta %s, mu %s, sd %s, res %s\n',
@@ -293,7 +293,7 @@ gom.log.Madj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=TRUE, ...) 
     res
 }
 
-gom.log.Mpadj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=TRUE, ...) {
+gom.log.Mpadj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=FALSE, ...) {
     res <- -2*(xdelta-gom.mean)/(gom.sd^2)
     if(verbose)
         cat(sprintf('Mpadj log, xdelta %s, mu %s, sd %s, res %s\n',
@@ -301,7 +301,7 @@ gom.log.Mpadj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=TRUE, ...)
     res
 }
 
-gom.Madj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=TRUE, ...) {
+gom.Madj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=FALSE, ...) {
     res <- exp(dnorm(xdelta, mean=gom.mean, sd=gom.sd, log=TRUE) - gom.peak)
     if(verbose)
         cat(sprintf('Madj, xdelta %s, mu %s, sd %s, res %s\n',
@@ -309,7 +309,7 @@ gom.Madj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=TRUE, ...) {
     res
 }
 
-gom.Mpadj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=TRUE, ...) {
+gom.Mpadj <- function(xdelta, gom.mean, gom.sd, gom.peak, verbose=FALSE, ...) {
     res <- -2*((xdelta-gom.mean)/(gom.sd^2))*gom.Madj(xdelta, gom.mean, gom.sd, gom.peak, verbose)
     if(verbose)
         cat(sprintf('Mpadj, xdelta %s, mu %s, sd %s, res %s\n',
