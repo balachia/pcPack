@@ -39,6 +39,21 @@ test_simulation <- function(n=100, diagnose.agent=FALSE) {
     run_simulation(n, agl$agents, agl$order)
 }
 
+test_gom_agent_simulation <- function(n=100, diagnose.agent=FALSE, gom.log=FALSE, ...) {
+    insert.dt <- data.table(x=c(-1,0,1, 49,50,51), W=0)
+    if(diagnose.agent) {
+        ag <- make_diagnostic_agent(n)
+    } else {
+        ag <- make_gom_agent(n, logp=gom.log)
+    }
+
+    agl <- set_up_agents(n, insert.dt,
+                         list(ag),
+                         randomize=FALSE)
+
+    run_simulation(n, agl$agents, agl$order, ...)
+}
+
 ############################################################
 # Agent Diagnostic
 
@@ -112,9 +127,9 @@ plot_crit <- function(critfs, n=1e3+1, ylim=0.95, xl=0, xr=1, midpoint=1, ...) {
     ysdts <- list()
     for(i in seq_along(critfs)) {
         critf <- critfs[[i]]
-        ys <- critf(xs, xl=xl, xr=xr, debug=TRUE, ...)
+        ys <- critf(xs, xl=xl, xr=xr, augment=TRUE, ...)
         cols <- c('crit', 'Mp', 'hVp', 'eurat', 'hVpeurat')
-        ysdt <- rbindlist(lapply(cols, function(col) data.table(x=xs, y=ys[[col]], type=col, func=i)))
+        ysdt <- rbindlist(lapply(cols, function(col) data.table(x=xs, y=attr(ys, col), type=col, func=i)))
         #ysdt <- rbindlist(map(cols, ~ data.table(x=xs, y=ys[[.]], type=., func=i)))
         ysdts <- c(ysdts, list(ysdt))
     }
@@ -146,6 +161,53 @@ plot_bridcrits <- function(xl, xr, Wl, Wr, ...) {
     plot_crit(list(bridcrit.normal, bridcrit.logged),
               xl=xl, xr=xr, Wl=Wl, Wr=Wr, ...)
 }
+
+plot_opencrits <- function(xl, W0, ...) {
+    plot_crit(list(opencrit.normal, opencrit.logged),
+              xl=xl, W0=W0, ...)
+}
+
+
+test.Madj.open <- function(delta, gom.mean=0, gom.sd=1, gom.coef=1, gom.log=TRUE, ...) {
+    gom.peak <- dnorm(gom.mean, mean=gom.mean, sd=gom.sd, log=TRUE)
+    res <- ct.Madj.open(delta)
+    if(gom.log) {
+        res <- res + gom.coef*gom.log.Madj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+    } else {
+        res <- res + gom.coef*gom.Madj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+    }
+}
+
+test.Mpadj.open <- function(delta, gom.mean=0, gom.sd=1, gom.coef=1, gom.log=TRUE, ...) {
+    gom.peak <- dnorm(gom.mean, mean=gom.mean, sd=gom.sd, log=TRUE)
+    res <- ct.Mpadj.open(delta)
+    if(gom.log) {
+        res <- res + gom.coef*gom.log.Mpadj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+    } else {
+        res <- res + gom.coef*gom.Mpadj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+    }
+}
+
+test.Madj.brid <- function(delta, dbar, gom.mean=0, gom.sd=1, gom.coef=1, gom.log=TRUE, ...) {
+    gom.peak <- dnorm(gom.mean, mean=gom.mean, sd=gom.sd, log=TRUE)
+    res <- ct.Madj.brid(delta, dbar)
+    if(gom.log) {
+        res <- res + gom.coef*gom.log.Madj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+    } else {
+        res <- res + gom.coef*gom.Madj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+    }
+}
+
+test.Mpadj.brid <- function(delta, dbar, gom.mean=0, gom.sd=1, gom.coef=1, gom.log=TRUE, ...) {
+    gom.peak <- dnorm(gom.mean, mean=gom.mean, sd=gom.sd, log=TRUE)
+    res <- ct.Mpadj.brid(delta, dbar)
+    if(gom.log) {
+        res <- res + gom.coef*gom.log.Mpadj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+    } else {
+        res <- res + gom.coef*gom.Mpadj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+    }
+}
+
 
 ############################################################
 # Search Diagnostic

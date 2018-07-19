@@ -71,7 +71,7 @@ run_simulation <- function(n, agents,
         # update all agents
         for(agent.i in seq_along(agents)) {
             agent <- agents[[agent.i]]
-            agents[[agent.i]] <- agentUpdate(agent, c(enteridx, i+1), intervals)
+            agents[[agent.i]] <- agentUpdate(agent, c(enteridx, i+1), intervals, ...)
         }
     }
 

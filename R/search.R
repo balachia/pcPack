@@ -1,17 +1,37 @@
 ############################################################
 # OPEN INTERVAL SEARCH
 
-search.open <- function(W0, lo=1e-4, hi=1e5, log=TRUE, ...) {
+search.open <- function(W0, lo=1e-4, hi=1e0, log=TRUE, ...) {
     fiter <- 2
 
-    # minimum must be positive, maximum must be negative
-    while((flo <- opencrit(lo, W0=W0, log=log, ...)) < 0) {
-        fiter <- fiter+1
-        lo <- 0.5*lo
+    trycrit <- function(x) {
+        y <- opencrit(x, W0=W0, log=TRUE, ...)
+        if(is.na(y)) {
+            y <- opencrit(x, W0=W0, log=FALSE, ...)
+        }
+        y
     }
-    while((fhi <- opencrit(hi, W0=W0, log=log, ...)) > 0) {
+
+    # minimum must be positive, maximum must be negative
+    locont <- TRUE
+    while(locont) {
         fiter <- fiter+1
-        hi <- 2*hi
+        (flo <- opencrit(lo, W0=W0, log=log, ...))
+        if(is.na(flo)) {
+            lo <- (4/3)*lo
+        } else {
+            if(flo > 0) { locont <- FALSE } else { lo <- 0.5*lo }
+        }
+    }
+    hicont <- TRUE
+    while(hicont) {
+        fiter <- fiter+1
+        (fhi <- opencrit(hi, W0=W0, log=log, ...)) > 0
+        if(is.na(fhi)) {
+            hi <- (2/3)*hi
+        } else {
+            if(fhi < 0) { hicont <- FALSE } else { hi <- 2*hi }
+        }
     }
 
     # search
@@ -41,7 +61,7 @@ search.open <- function(W0, lo=1e-4, hi=1e5, log=TRUE, ...) {
 bridge.Mp.crit <- function(delta, xl, xr, Wl, Wr, Mpadj=function(...) 0, ...) {
     dbar <- xr - xl - delta
     #(Wr-Wl)/(xr-xl) + dct(delta) - dct(dbar)
-    (Wr-Wl)/(xr-xl) + Mpadj(delta, dbar)
+    (Wr-Wl)/(xr-xl) + Mpadj(delta, dbar, ...)
 }
 
 #' Regular search procedure for bridge interval.
@@ -204,7 +224,10 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
     if(FALSE){
         res <- search.brid.tight(bridcrit.f, bridcrit.f.normal, lo, mid, hi, eps=eps, ...)
     } else {
-        if(Wl < Wr) {
+        # which half are we in? +1 = upper, -1 = lower
+        half.sign <- sign(Mp0 - mid)
+        #if(Wl < Wr) {
+        if(half.sign>0) {
             # optimum in (weakly) upper half, Mp0 >= mid
             #stopifnot(Mp0 >= mid)
             loweroptim.int <- c(lo, mid-eps)
@@ -226,9 +249,28 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
                         paste(loweroptim.int, collapse=', ')))
         }
 
-        res <- search.brid.regular(bridcrit.f, bridcrit.f.normal,
-                                   upperzero.int, loweroptim.int, lowerzero.end,
-                                   mid, Mp0, ...)
+        res <- tryCatch({
+            res <- search.brid.regular(bridcrit.f, bridcrit.f.normal,
+                                       upperzero.int, loweroptim.int, lowerzero.end,
+                                       mid, Mp0, ...)
+            res
+        }, error=function(e) {
+            # optimistically: we have guessed the wrong half, so let's try in the other?
+            if(half.sign<0) {
+                loweroptim.int <- c(lo, mid-eps)
+                lowerzero.end <- lo
+                upperzero.int <- c(Mp0, hi)
+            } else {
+                loweroptim.int <- c(mid+eps, hi)
+                lowerzero.end <- hi
+                upperzero.int <- c(lo, Mp0)
+            }
+            res <- search.brid.regular(bridcrit.f, bridcrit.f.normal,
+                                       upperzero.int, loweroptim.int, lowerzero.end,
+                                       mid, Mp0, ...)
+            res
+        })
+        res
     }
 
     res

@@ -164,6 +164,168 @@ agentUpdate.standard.agent <- function(agent, update.idx, intervals, ...) {
 }
 
 ############################################################
+# GOM AGENT
+
+#' set up entry plan table
+#' 
+#' Fields
+#'  id --- entry sequence (corresponds to interval id)
+#'  delta --- best entry in interval
+#'  Eu --- expected utility of entry at delta
+#' @param n number of positions
+#' @import data.table
+create_gom_plans_table <- function(n) {
+    data.table(id=1:n, delta=as.numeric(NA), Eu=-Inf,
+               cat.id=as.integer(NA), cat.mu=as.numeric(NA), cat.peak=as.numeric(NA),
+               key='id')
+}
+
+
+#' Category-aware agent
+#'
+#' Agent with utility u(m) = a*m - exp(-b*m)
+#' @param n number of entries into the market
+#' @param a agent utility function a parameter
+#' @param b agent utility function b parameter
+#' @param ... capture additional arguments
+#' @export
+#make_gom_agent <- function(a=1, b=1, logp=TRUE, ...) {
+make_gom_agent <- function(a=1, b=1, logp=FALSE, ...) {
+    ag <- list()
+    class(ag) <- c('gom.agent', 'standard.agent', 'agent')
+
+    ag$parameters <- list(a=a, b=b)
+    ag$a <- a
+    ag$b <- b
+    #ag$plan <- create_plans_table(n+1)
+
+    ag$Madj.open <- ct.Madj.open
+    ag$Mpadj.open <- ct.Mpadj.open
+    ag$Madj.brid <- ct.Madj.brid
+    ag$Mpadj.brid <- ct.Mpadj.brid
+
+    # use logged goms?
+    ag$logp <- logp
+
+    ag
+}
+
+#' @export
+Ops.gom.agent <- function(a1, a2) {
+    switch(.Generic[[1]],
+           `==` = {
+               if(inherits(a1, 'gom.agent') && inherits(a2, 'gom.agent')) {
+                   a1$a == a2$a && a1$b == a2$b
+               } else {
+                   FALSE
+               }
+           },
+           stop('Agent operator not implemented')
+           )
+}
+
+#' @export
+print.gom.agent <- function(ag, ...) {
+    cat(sprintf('gom agent :: a %s :: b %s\n', ag$a, ag$b))
+}
+
+agentSetup.gom.agent <- function(agent, n, ...) {
+    agent$plan <- create_gom_plans_table(n+1)
+    agent
+}
+
+#' @import data.table
+agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
+    extra <- list(...)
+    debug <- if(!is.null(extra$debug)) { extra$debug } else { FALSE }
+    plan <- agent$plan
+    # rebuild categories
+    xlfin <- intervals[, is.finite(xl)]
+    xrfin <- intervals[, is.finite(xr)]
+    either <- xlfin|xrfin
+    xs <- intervals[(xlfin), xl]
+    # only do this categorization if we have enough data to categorize
+    if(length(xs) >= 3) {
+        #   get mixture
+        mix <- categorize.mclust(xs, min.k=2, verbose=FALSE, ...)$mix
+        mixps <- get_mix_parameters(mix)
+        peaks <- sapply(1:mixps$k, function(i) {
+                dnorm(mixps$mean[i], mean=mixps$mean[i], sd=mixps$sd[i], log=TRUE)
+            })
+        #   get goms & top category
+        xgoms <- intervals[(either), ifelse(xlfin[either], xl, xr)]
+        goms <- get_goms(xgoms, mix, logp=TRUE)
+        topcat <- sapply(1:nrow(goms), function(ri) order(goms[ri,], decreasing=TRUE)[1])
+        plan[(either), `:=`(cat.id=topcat,
+                                 cat.mu=mixps$mean[topcat],
+                                 cat.peak=peaks[topcat])]
+
+        # find valid intervals
+        idxs <- intervals[(either), id]
+        # update each interval
+        for(idx in idxs) {
+            xl <- intervals[idx, xl]
+            xr <- intervals[idx, xr]
+            idx.cat <- plan[idx, cat.id]
+            gom.mean <- mixps$mean[idx.cat]
+            gom.sd <- mixps$sd[idx.cat]
+            gom.peak <- peaks[idx.cat]
+            if(debug) {
+                cat(sprintf('gom looking at %d :: x (%s, %s) W (%s, %s), mu %s sd %s\n',
+                                  idx, xl, xr, intervals[idx, Wl], intervals[idx, Wr],
+                                  gom.mean, gom.sd))
+            }
+            # build M adjustments:
+            if(agent$logp) {
+                ag.Madj <- gom.log.Madj
+                ag.Mpadj <- gom.log.Mpadj
+            } else {
+                ag.Madj <- gom.Madj
+                ag.Mpadj <- gom.Mpadj
+            }
+            if(is.infinite(xl)) {
+                # open left interval
+                Madj <- function(delta, ...) agent$Madj.open(delta) + ag.Madj(xr-delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) - ag.Mpadj(xr-delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                W <- intervals[idx, Wr]
+                delta1 <- search.open(W, a=agent$a, b=agent$b,
+                                      Madj=Madj, Mpadj=Mpadj,
+                                      ...)$root
+                Eu1 <- Euopen(delta1, W0=W, a=agent$a, b=agent$b,
+                              Madj=Madj,
+                              ...)
+            } else if(is.infinite(xr)) {
+                # open right interval
+                Madj <- function(delta, ...) agent$Madj.open(delta) + ag.Madj(xl+delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                W <- intervals[idx, Wl]
+                delta1 <- search.open(W, a=agent$a, b=agent$b,
+                                      Madj=Madj, Mpadj=Mpadj,
+                                      ...)$root
+                Eu1 <- Euopen(delta1, W0=W, a=agent$a, b=agent$b,
+                              Madj=Madj,
+                              ...)
+            } else {
+                # bridge interval
+                Madj <- function(delta, dbar, ...) agent$Madj.brid(delta, dbar) + ag.Madj(xl+delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                Mpadj <- function(delta, dbar, ...) agent$Mpadj.brid(delta, dbar) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                Wl <- intervals[idx, Wl]
+                Wr <- intervals[idx, Wr]
+                delta1 <- search.brid(xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b,
+                                      Madj=Madj, Mpadj=Mpadj,
+                                      ...)$u0
+                Eu1 <- Eubrid(delta1, xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b,
+                              Madj=Madj,
+                              ...)
+            }
+            plan[idx, `:=`(delta=delta1, Eu=Eu1)]
+        }
+        agent$plan <- plan
+    }
+    agent
+}
+
+############################################################
 # INSERT AGENT
 
 make_insert_agent <- function(insert.dt, ...) {
