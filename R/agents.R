@@ -190,7 +190,7 @@ create_gom_plans_table <- function(n) {
 #' @param ... capture additional arguments
 #' @export
 #make_gom_agent <- function(a=1, b=1, logp=TRUE, ...) {
-make_gom_agent <- function(a=1, b=1, logp=FALSE, ...) {
+make_gom_agent <- function(a=1, b=1, gom.weight=1, logp=FALSE, ...) {
     ag <- list()
     class(ag) <- c('gom.agent', 'standard.agent', 'agent')
 
@@ -206,6 +206,9 @@ make_gom_agent <- function(a=1, b=1, logp=FALSE, ...) {
 
     # use logged goms?
     ag$logp <- logp
+
+    # weight on gom relative to terrain
+    ag$gom.weight <- gom.weight
 
     ag
 }
@@ -239,6 +242,7 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
     extra <- list(...)
     debug <- if(!is.null(extra$debug)) { extra$debug } else { FALSE }
     plan <- agent$plan
+    gw <- agent$gom.weight
     # rebuild categories
     xlfin <- intervals[, is.finite(xl)]
     xrfin <- intervals[, is.finite(xr)]
@@ -277,16 +281,16 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
             }
             # build M adjustments:
             if(agent$logp) {
-                ag.Madj <- gom.log.Madj
-                ag.Mpadj <- gom.log.Mpadj
+                ag.Madj <- function(...) gw*gom.log.Madj(...)
+                ag.Mpadj <- function(...) gw*gom.log.Mpadj(...)
             } else {
-                ag.Madj <- gom.Madj
-                ag.Mpadj <- gom.Mpadj
+                ag.Madj <- function(...) gw*gom.Madj(...)
+                ag.Mpadj <- function(...) gw*gom.Mpadj(...)
             }
             if(is.infinite(xl)) {
                 # open left interval
-                Madj <- function(delta, ...) agent$Madj.open(delta) + ag.Madj(xr-delta, gom.mean, gom.sd, gom.peak, debug, ...)
-                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) - ag.Mpadj(xr-delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                Madj <- function(delta, ...) agent$Madj.open(delta) + ag.Madj(xr-delta, gom.mean, gom.sd, gom.peak, ...)
+                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) - ag.Mpadj(xr-delta, gom.mean, gom.sd, gom.peak, ...)
                 W <- intervals[idx, Wr]
                 delta1 <- search.open(W, a=agent$a, b=agent$b,
                                       Madj=Madj, Mpadj=Mpadj,
@@ -296,8 +300,8 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
                               ...)
             } else if(is.infinite(xr)) {
                 # open right interval
-                Madj <- function(delta, ...) agent$Madj.open(delta) + ag.Madj(xl+delta, gom.mean, gom.sd, gom.peak, debug, ...)
-                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                Madj <- function(delta, ...) agent$Madj.open(delta) + ag.Madj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
+                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
                 W <- intervals[idx, Wl]
                 delta1 <- search.open(W, a=agent$a, b=agent$b,
                                       Madj=Madj, Mpadj=Mpadj,
@@ -307,8 +311,8 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
                               ...)
             } else {
                 # bridge interval
-                Madj <- function(delta, dbar, ...) agent$Madj.brid(delta, dbar) + ag.Madj(xl+delta, gom.mean, gom.sd, gom.peak, debug, ...)
-                Mpadj <- function(delta, dbar, ...) agent$Mpadj.brid(delta, dbar) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, debug, ...)
+                Madj <- function(delta, dbar, ...) agent$Madj.brid(delta, dbar) + ag.Madj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
+                Mpadj <- function(delta, dbar, ...) agent$Mpadj.brid(delta, dbar) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
                 Wl <- intervals[idx, Wl]
                 Wr <- intervals[idx, Wr]
                 delta1 <- search.brid(xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b,
