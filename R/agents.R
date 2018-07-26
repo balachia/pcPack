@@ -204,11 +204,21 @@ make_gom_agent <- function(a=1, b=1, gom.weight=1, logp=FALSE, ...) {
     ag$Madj.brid <- ct.Madj.brid
     ag$Mpadj.brid <- ct.Mpadj.brid
 
+
     # use logged goms?
     ag$logp <- logp
 
     # weight on gom relative to terrain
     ag$gom.weight <- gom.weight
+
+    # build M adjustments:
+    if(logp) {
+        ag$gom.Madj <- function(...) gom.weight*gom.log.Madj(...)
+        ag$gom.Mpadj <- function(...) gom.weight*gom.log.Mpadj(...)
+    } else {
+        ag$gom.Madj <- function(...) gom.weight*gom.Madj(...)
+        ag$gom.Mpadj <- function(...) gom.weight*gom.Mpadj(...)
+    }
 
     ag
 }
@@ -244,7 +254,7 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, verbose=.verbose
     extra <- list(...)
     debug <- if(!is.null(extra$debug)) { extra$debug } else { FALSE }
     plan <- agent$plan
-    gw <- agent$gom.weight
+    #gw <- agent$gom.weight
     # rebuild categories
     xlfin <- intervals[, is.finite(xl)]
     xrfin <- intervals[, is.finite(xr)]
@@ -270,11 +280,23 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, verbose=.verbose
 
         # find valid intervals
         idxs <- intervals[(either), id]
+        # predraw vectors
+        xls <- intervals[, xl]
+        xrs <- intervals[, xr]
+        Wls <- intervals[, Wl]
+        Wrs <- intervals[, Wr]
+        cat.ids <- plan[, cat.id]
+        # preallocate results
+        deltas <- numeric(length=length(idxs))
+        Eus <- numeric(length=length(idxs))
         # update each interval
         for(idx in idxs) {
-            xl <- intervals[idx, xl]
-            xr <- intervals[idx, xr]
-            idx.cat <- plan[idx, cat.id]
+            #xl <- intervals[idx, xl]
+            #xr <- intervals[idx, xr]
+            #idx.cat <- plan[idx, cat.id]
+            xl <- xls[idx]
+            xr <- xrs[idx]
+            idx.cat <- cat.ids[idx]
             gom.mean <- mixps$mean[idx.cat]
             gom.sd <- mixps$sd[idx.cat]
             gom.peak <- peaks[idx.cat]
@@ -283,19 +305,20 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, verbose=.verbose
                                   idx, xl, xr, intervals[idx, Wl], intervals[idx, Wr],
                                   gom.mean, gom.sd))
             }
-            # build M adjustments:
-            if(agent$logp) {
-                ag.Madj <- function(...) gw*gom.log.Madj(...)
-                ag.Mpadj <- function(...) gw*gom.log.Mpadj(...)
-            } else {
-                ag.Madj <- function(...) gw*gom.Madj(...)
-                ag.Mpadj <- function(...) gw*gom.Mpadj(...)
-            }
+            ## build M adjustments:
+            #if(agent$logp) {
+            #    ag.Madj <- function(...) gw*gom.log.Madj(...)
+            #    ag.Mpadj <- function(...) gw*gom.log.Mpadj(...)
+            #} else {
+            #    ag.Madj <- function(...) gw*gom.Madj(...)
+            #    ag.Mpadj <- function(...) gw*gom.Mpadj(...)
+            #}
             if(is.infinite(xl)) {
                 # open left interval
-                Madj <- function(delta, ...) agent$Madj.open(delta) + ag.Madj(xr-delta, gom.mean, gom.sd, gom.peak, ...)
-                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) - ag.Mpadj(xr-delta, gom.mean, gom.sd, gom.peak, ...)
-                W <- intervals[idx, Wr]
+                Madj <- function(delta, ...) agent$Madj.open(delta) + agent$gom.Madj(xr-delta, gom.mean, gom.sd, gom.peak, ...)
+                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) - agent$gom.Mpadj(xr-delta, gom.mean, gom.sd, gom.peak, ...)
+                #W <- intervals[idx, Wr]
+                W <- Wrs[idx]
                 delta1 <- search.open(W, a=agent$a, b=agent$b,
                                       Madj=Madj, Mpadj=Mpadj, verbose=verbose,
                                       ...)$root
@@ -304,9 +327,10 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, verbose=.verbose
                               ...)
             } else if(is.infinite(xr)) {
                 # open right interval
-                Madj <- function(delta, ...) agent$Madj.open(delta) + ag.Madj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
-                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
-                W <- intervals[idx, Wl]
+                Madj <- function(delta, ...) agent$Madj.open(delta) + agent$gom.Madj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
+                Mpadj <- function(delta, ...) agent$Mpadj.open(delta) + agent$gom.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
+                #W <- intervals[idx, Wl]
+                W <- Wls[idx]
                 delta1 <- search.open(W, a=agent$a, b=agent$b,
                                       Madj=Madj, Mpadj=Mpadj, verbose=verbose,
                                       ...)$root
@@ -315,10 +339,12 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, verbose=.verbose
                               ...)
             } else {
                 # bridge interval
-                Madj <- function(delta, dbar, ...) agent$Madj.brid(delta, dbar) + ag.Madj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
-                Mpadj <- function(delta, dbar, ...) agent$Mpadj.brid(delta, dbar) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
-                Wl <- intervals[idx, Wl]
-                Wr <- intervals[idx, Wr]
+                Madj <- function(delta, dbar, ...) agent$Madj.brid(delta, dbar) + agent$gom.Madj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
+                Mpadj <- function(delta, dbar, ...) agent$Mpadj.brid(delta, dbar) + agent$gom.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
+                #Wl <- intervals[idx, Wl]
+                #Wr <- intervals[idx, Wr]
+                Wl <- Wls[idx]
+                Wr <- Wrs[idx]
                 delta1 <- search.brid(xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b,
                                       Madj=Madj, Mpadj=Mpadj, verbose=verbose,
                                       ...)$u0
@@ -326,8 +352,11 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, verbose=.verbose
                               Madj=Madj, verbose=verbose,
                               ...)
             }
-            plan[idx, `:=`(delta=delta1, Eu=Eu1)]
+            #plan[idx, `:=`(delta=delta1, Eu=Eu1)]
+            deltas[idx] <- delta1           
+            Eus[idx] <- Eu1           
         }
+        plan[idxs, `:=`(delta=deltas, Eu=Eus)]
         agent$plan <- plan
     }
     agent
