@@ -9,6 +9,7 @@ if(getRversion() >= "2.15.1"){
 
 .verbose <- list(
     NONE=0,
-    INFO=10,
-    TRACE=20,
-    DEBUG=30)
+    INFO=1,
+    TRACE=2,
+    DEBUG=3,
+    DEBUG2=4)

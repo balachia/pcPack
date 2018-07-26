@@ -49,7 +49,12 @@ run_simulation <- function(n, agents,
 
     for(i in 1:n) {
         #print(intervals)
-        if(verbose >= .verbose$DEBUG && i %% verb.interval < 1) cat('.')
+        if (verbose >= .verbose$TRACE) {
+            cat(sprintf('Market iteration: %d\n', i)) 
+        } else if(verbose >= .verbose$INFO && i %% verb.interval < 1) {
+            cat('.')
+        }
+        #if(verbose >= .verbose$DEBUG && i %% verb.interval < 1) cat('.')
 
         agent <- agents[[agent.order[i]]]
         entry <- agentEntry(agent, i, intervals, positions, verbose=verbose, ...)
@@ -104,13 +109,14 @@ run_simulations <- function(nsim, n,
     ress <- parallel::mclapply(1:nsim,
         FUN=function(simi) {
             set.seed(seeds[simi])
-            if(verbose >= .verbose$INFO) cat(sprintf(sim.format, simi))
+            if(verbose >= .verbose$NONE) cat(sprintf(sim.format, simi))
+            if(verbose >= .verbose$INFO) cat(sprintf('(seed %s) ', seeds[simi]))
             #ags0 <- lapply(agent.fs, function(f) f(n, ...))
             #agl <- set_up_agents(n, insert.dt, ags0, ...)
             agl <- set_up_agents(n, insert.dt, agents, ...)
             res <- run_simulation(n, agl$agents, agl$order, verbose=verbose, ...)
             dtime <- (proc.time() - ptm)[3]
-            if(verbose >= .verbose$INFO) cat(sprintf(time.format, dtime, dtime/simi))
+            if(verbose >= .verbose$NONE) cat(sprintf(time.format, dtime, dtime/simi))
             res$positions[, sim := simi]
             res$intervals[, sim := simi]
             res
