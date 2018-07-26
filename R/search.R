@@ -1,57 +1,95 @@
 ############################################################
 # OPEN INTERVAL SEARCH
 
-search.open <- function(W0, lo=1e-4, hi=1e0, log=TRUE, verbose=0, ...) {
+search.open <- function(W0, verbose=0, ...) {
     if(verbose >= .verbose$TRACE) cat('Call: search.open\n')
-    fiter <- 2
 
-    # garbage hack bisection code
-
-    # minimum must be positive, maximum must be negative
-    locont <- TRUE
-    while(locont) {
-        fiter <- fiter+1
-        (flo <- opencrit(lo, W0=W0, log=log, verbose=verbose, ...))
-        if(verbose >= .verbose$DEBUG) cat(sprintf('search.open lo search (%d) :: %s :: %s\n', fiter, lo, flo))
-        if(is.na(flo)) {
-            lo <- (4/3)*lo
+    # try log bounds first
+    bds <- search.open.bounds(W0=W0, log=TRUE, verbose=verbose, ...)
+    fiter <- bds$fiter
+    if (!is.na(bds$retcode)) {
+        bds.nolog <- search.open.bounds(W0=W0, log=FALSE, verbose=verbose, ...)
+        if (!is.na(bds.nolog$retcode)) {
+            stop(sprintf('Cannot find open interval bounds:\nLog:\t%s\nNo log:\t%s\n', bds$retcode, bds.nolog$retcode))
         } else {
-            if(flo > 0) { locont <- FALSE } else { lo <- 0.5*lo }
+            open.log <- FALSE
+            bds <- bds.nolog
         }
+        fiter <- fiter + bds.nolog$fiter
+    } else {
+        open.log <- TRUE
     }
-    hicont <- TRUE
-    hipos <- lo
-    hina <- Inf
-    hi <- max(lo, hi)
-    while(hicont) {
-        fiter <- fiter+1
-        (fhi <- opencrit(hi, W0=W0, log=log, verbose=verbose, ...)) > 0
-        if(verbose >= .verbose$DEBUG) cat(sprintf('search.open hi search (%d) :: %s :: %s\n', fiter, hi, fhi))
-        if(is.na(fhi)) {
-            hina <- hi
-            #hi <- lo + (0.9)*(hi-lo)
-            hi <- 0.5*(hina + hipos)
-        } else {
-            if(fhi < 0) {
-                hicont <- FALSE
-            } else {
-                #hi <- 1.1*hi
-                hipos <- hi
-                hi <- if(is.infinite(hina)) { 2*hipos } else { 0.5*(hina + hipos) }
-            }
-        }
-    }
+    lo <- bds$lo
+    hi <- bds$hi
+    flo <- bds$flo
+    fhi <- bds$fhi
 
     # search
     tryCatch({
         urres <- uniroot(opencrit, c(lo, hi),
                          f.lower=flo, f.upper=fhi,
-                         W0=W0, log=log, verbose=verbose, ...)
+                         W0=W0, log=open.log, verbose=verbose, ...)
     }, error=function(e) {
         stop(e)
     })
     res <- list(root=urres$root, preiter=fiter, uriter=urres$iter, uniroot=urres)
     res
+}
+
+search.open.bounds <- function(lo=1e-4, eps=1e-6, max.fiter=1e3, verbose=0, ...) {
+    fiter <- 0
+    locont <- TRUE
+    hicont <- TRUE
+    retcode <- as.character(NA)
+
+    # minimum must be positive, maximum must be negative
+    # lo search
+    while(locont) {
+        fiter <- fiter+1
+        flo <- opencrit(lo, verbose=verbose, ...)
+        if(verbose >= .verbose$DEBUG) cat(sprintf('search.open.bounds lo (%d) :: %s :: %s\n', fiter, lo, flo))
+        if(is.na(flo)) {
+            lo <- 1.5*lo
+        } else if (fiter < max.fiter) {
+            if(flo > 0) { locont <- FALSE } else { lo <- 0.5*lo }
+        } else {
+            locont <- FALSE
+            hicont <- FALSE
+            retcode <- 'max.fiter'
+        }
+    }
+
+    # hi search (expanding bisection, sort of)
+    hipos <- lo
+    hina <- Inf
+    hi <- 2*lo
+    while(hicont) {
+        fiter <- fiter+1
+        fhi <- opencrit(hi, verbose=verbose, ...)
+        if(verbose >= .verbose$DEBUG) cat(sprintf('search.open.bounds hi (%d) :: %s :: %s\n', fiter, hi, fhi))
+        if(is.na(fhi)) {
+            hina <- hi
+            hi <- 0.5*(hina + hipos)
+        } else {
+            if(fhi < 0) {
+                hicont <- FALSE
+            } else if (fiter < max.fiter) {
+                hipos <- hi
+                if(hina - hipos > eps) {
+                    hi <- if(is.infinite(hina)) { 2*hipos } else { 0.5*(hina + hipos) }
+                } else {
+                    # hi bounds too close together
+                    hicont <- FALSE
+                    retcode <- 'eps hi'
+                }
+            } else {
+                hicont <- FALSE
+                retcode <- 'max.fiter'
+            }
+        }
+    }
+
+    list(lo=lo, hi=hi, flo=flo, fhi=fhi, fiter=fiter, retcode=retcode)
 }
 
 ############################################################
