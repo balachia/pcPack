@@ -220,7 +220,7 @@ opencrit.normal <- function(delta, W0, sigma=1, b=1, Mpadj=squash, augment=FALSE
 opencrit.logged <- function(delta, W0, sigma=1, b=1, Mpadj=squash, augment=FALSE, ...) {
     exparg <- exparg.open(delta, W0=W0, sigma=sigma, b=b, ...)
     #logMp <- dct.logged(delta)
-    logMp <- log(Mpadj(delta, ...))
+    logMp <- suppressWarnings(log(Mpadj(delta, ...)))
     loghVp <- 2*log(sigma) - log(2)
     eurat <- euratio.logged(exparg, b=b, ...)
     crit <- logMp - loghVp - eurat

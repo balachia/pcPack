@@ -172,9 +172,9 @@ test.Madj.open <- function(delta, gom.mean=0, gom.sd=1, gom.coef=1, gom.log=TRUE
     gom.peak <- dnorm(gom.mean, mean=gom.mean, sd=gom.sd, log=TRUE)
     res <- ct.Madj.open(delta)
     if(gom.log) {
-        res <- res + gom.coef*gom.log.Madj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+        res <- res + gom.coef*gom.log.Madj(delta, gom.mean, gom.sd, gom.peak)
     } else {
-        res <- res + gom.coef*gom.Madj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+        res <- res + gom.coef*gom.Madj(delta, gom.mean, gom.sd, gom.peak)
     }
 }
 
@@ -182,9 +182,9 @@ test.Mpadj.open <- function(delta, gom.mean=0, gom.sd=1, gom.coef=1, gom.log=TRU
     gom.peak <- dnorm(gom.mean, mean=gom.mean, sd=gom.sd, log=TRUE)
     res <- ct.Mpadj.open(delta)
     if(gom.log) {
-        res <- res + gom.coef*gom.log.Mpadj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+        res <- res + gom.coef*gom.log.Mpadj(delta, gom.mean, gom.sd, gom.peak)
     } else {
-        res <- res + gom.coef*gom.Mpadj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+        res <- res + gom.coef*gom.Mpadj(delta, gom.mean, gom.sd, gom.peak)
     }
 }
 
@@ -192,9 +192,9 @@ test.Madj.brid <- function(delta, dbar, gom.mean=0, gom.sd=1, gom.coef=1, gom.lo
     gom.peak <- dnorm(gom.mean, mean=gom.mean, sd=gom.sd, log=TRUE)
     res <- ct.Madj.brid(delta, dbar)
     if(gom.log) {
-        res <- res + gom.coef*gom.log.Madj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+        res <- res + gom.coef*gom.log.Madj(delta, gom.mean, gom.sd, gom.peak)
     } else {
-        res <- res + gom.coef*gom.Madj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+        res <- res + gom.coef*gom.Madj(delta, gom.mean, gom.sd, gom.peak)
     }
 }
 
@@ -202,9 +202,9 @@ test.Mpadj.brid <- function(delta, dbar, gom.mean=0, gom.sd=1, gom.coef=1, gom.l
     gom.peak <- dnorm(gom.mean, mean=gom.mean, sd=gom.sd, log=TRUE)
     res <- ct.Mpadj.brid(delta, dbar)
     if(gom.log) {
-        res <- res + gom.coef*gom.log.Mpadj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+        res <- res + gom.coef*gom.log.Mpadj(delta, gom.mean, gom.sd, gom.peak)
     } else {
-        res <- res + gom.coef*gom.Mpadj(delta, gom.mean, gom.sd, gom.peak, verbose=FALSE)
+        res <- res + gom.coef*gom.Mpadj(delta, gom.mean, gom.sd, gom.peak)
     }
 }
 

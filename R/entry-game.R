@@ -36,7 +36,7 @@ create.positions.table <- function(n) {
 #' @export
 run_simulation <- function(n, agents,
                        agent.order=rep(seq_along(agents), length.out=n),
-                       verbose=0,
+                       verbose=.verbose$NONE,
                        ...) {
 
     # prepare tables
@@ -49,10 +49,10 @@ run_simulation <- function(n, agents,
 
     for(i in 1:n) {
         #print(intervals)
-        if(verbose >= 2 && i %% verb.interval < 1) cat('.')
+        if(verbose >= .verbose$DEBUG && i %% verb.interval < 1) cat('.')
 
         agent <- agents[[agent.order[i]]]
-        entry <- agentEntry(agent, i, intervals, positions, ...)
+        entry <- agentEntry(agent, i, intervals, positions, verbose=verbose, ...)
 
         #cat(sprintf('%s --- %s --- %s\n', entry$idx, entry$x, entry$W))
 
@@ -71,7 +71,7 @@ run_simulation <- function(n, agents,
         # update all agents
         for(agent.i in seq_along(agents)) {
             agent <- agents[[agent.i]]
-            agents[[agent.i]] <- agentUpdate(agent, c(enteridx, i+1), intervals, ...)
+            agents[[agent.i]] <- agentUpdate(agent, c(enteridx, i+1), intervals, verbose=verbose, ...)
         }
     }
 
@@ -93,7 +93,7 @@ run_simulations <- function(nsim, n,
                             #agent.fs=list(make_standard_agent),
                             agents=list(make_standard_agent()),
                             insert.dt=data.table(x=0, W=0),
-                            seed=1, verbose=1,
+                            seed=1, verbose=.verbose$NONE,
                             ...) {
     # pre-sample seeds for parallel computation
     set.seed(seed)
@@ -104,13 +104,13 @@ run_simulations <- function(nsim, n,
     ress <- parallel::mclapply(1:nsim,
         FUN=function(simi) {
             set.seed(seeds[simi])
-            if(verbose >= 1) cat(sprintf(sim.format, simi))
+            if(verbose >= .verbose$INFO) cat(sprintf(sim.format, simi))
             #ags0 <- lapply(agent.fs, function(f) f(n, ...))
             #agl <- set_up_agents(n, insert.dt, ags0, ...)
             agl <- set_up_agents(n, insert.dt, agents, ...)
             res <- run_simulation(n, agl$agents, agl$order, verbose=verbose, ...)
             dtime <- (proc.time() - ptm)[3]
-            if(verbose >= 1) cat(sprintf(time.format, dtime, dtime/simi))
+            if(verbose >= .verbose$INFO) cat(sprintf(time.format, dtime, dtime/simi))
             res$positions[, sim := simi]
             res$intervals[, sim := simi]
             res

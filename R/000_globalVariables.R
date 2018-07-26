@@ -6,3 +6,9 @@ if(getRversion() >= "2.15.1"){
     'id', 'delta', 'Eu'         # plans
     ))
 }
+
+.verbose <- list(
+    NONE=0,
+    INFO=10,
+    TRACE=20,
+    DEBUG=30)

@@ -240,7 +240,7 @@ agentSetup.gom.agent <- function(agent, n, ...) {
 }
 
 #' @import data.table
-agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
+agentUpdate.gom.agent <- function(agent, update.idx, intervals, verbose=.verbose$NONE, ...) {
     extra <- list(...)
     debug <- if(!is.null(extra$debug)) { extra$debug } else { FALSE }
     plan <- agent$plan
@@ -253,7 +253,9 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
     # only do this categorization if we have enough data to categorize
     if(length(xs) >= 3) {
         #   get mixture
-        mix <- categorize.mclust(xs, min.k=2, verbose=FALSE, ...)$mix
+        extra$verbose <- FALSE
+        mix <- do.call(categorize.mclust, c(list(xs, min.k=2), extra))$mix
+        #mix <- categorize.mclust(xs, min.k=2, verbose=FALSE, ...)$mix
         mixps <- get_mix_parameters(mix)
         peaks <- sapply(1:mixps$k, function(i) {
                 dnorm(mixps$mean[i], mean=mixps$mean[i], sd=mixps$sd[i], log=TRUE)
@@ -295,10 +297,10 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
                 Mpadj <- function(delta, ...) agent$Mpadj.open(delta) - ag.Mpadj(xr-delta, gom.mean, gom.sd, gom.peak, ...)
                 W <- intervals[idx, Wr]
                 delta1 <- search.open(W, a=agent$a, b=agent$b,
-                                      Madj=Madj, Mpadj=Mpadj,
+                                      Madj=Madj, Mpadj=Mpadj, verbose=verbose,
                                       ...)$root
                 Eu1 <- Euopen(delta1, W0=W, a=agent$a, b=agent$b,
-                              Madj=Madj,
+                              Madj=Madj, verbose=verbose,
                               ...)
             } else if(is.infinite(xr)) {
                 # open right interval
@@ -306,10 +308,10 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
                 Mpadj <- function(delta, ...) agent$Mpadj.open(delta) + ag.Mpadj(xl+delta, gom.mean, gom.sd, gom.peak, ...)
                 W <- intervals[idx, Wl]
                 delta1 <- search.open(W, a=agent$a, b=agent$b,
-                                      Madj=Madj, Mpadj=Mpadj,
+                                      Madj=Madj, Mpadj=Mpadj, verbose=verbose,
                                       ...)$root
                 Eu1 <- Euopen(delta1, W0=W, a=agent$a, b=agent$b,
-                              Madj=Madj,
+                              Madj=Madj, verbose=verbose,
                               ...)
             } else {
                 # bridge interval
@@ -318,10 +320,10 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, ...) {
                 Wl <- intervals[idx, Wl]
                 Wr <- intervals[idx, Wr]
                 delta1 <- search.brid(xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b,
-                                      Madj=Madj, Mpadj=Mpadj,
+                                      Madj=Madj, Mpadj=Mpadj, verbose=verbose,
                                       ...)$u0
                 Eu1 <- Eubrid(delta1, xl=xl, xr=xr, Wl=Wl, Wr=Wr, a=agent$a, b=agent$b,
-                              Madj=Madj,
+                              Madj=Madj, verbose=verbose,
                               ...)
             }
             plan[idx, `:=`(delta=delta1, Eu=Eu1)]

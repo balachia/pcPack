@@ -1,22 +1,18 @@
 ############################################################
 # OPEN INTERVAL SEARCH
 
-search.open <- function(W0, lo=1e-4, hi=1e0, log=TRUE, ...) {
+search.open <- function(W0, lo=1e-4, hi=1e0, log=TRUE, verbose=0, ...) {
+    if(verbose >= .verbose$TRACE) cat('Call: search.open\n')
     fiter <- 2
 
-    trycrit <- function(x) {
-        y <- opencrit(x, W0=W0, log=TRUE, ...)
-        if(is.na(y)) {
-            y <- opencrit(x, W0=W0, log=FALSE, ...)
-        }
-        y
-    }
+    # garbage hack bisection code
 
     # minimum must be positive, maximum must be negative
     locont <- TRUE
     while(locont) {
         fiter <- fiter+1
-        (flo <- opencrit(lo, W0=W0, log=log, ...))
+        (flo <- opencrit(lo, W0=W0, log=log, verbose=verbose, ...))
+        if(verbose >= .verbose$DEBUG) cat(sprintf('search.open lo search (%d) :: %s :: %s\n', fiter, lo, flo))
         if(is.na(flo)) {
             lo <- (4/3)*lo
         } else {
@@ -24,13 +20,25 @@ search.open <- function(W0, lo=1e-4, hi=1e0, log=TRUE, ...) {
         }
     }
     hicont <- TRUE
+    hipos <- lo
+    hina <- Inf
+    hi <- max(lo, hi)
     while(hicont) {
         fiter <- fiter+1
-        (fhi <- opencrit(hi, W0=W0, log=log, ...)) > 0
+        (fhi <- opencrit(hi, W0=W0, log=log, verbose=verbose, ...)) > 0
+        if(verbose >= .verbose$DEBUG) cat(sprintf('search.open hi search (%d) :: %s :: %s\n', fiter, hi, fhi))
         if(is.na(fhi)) {
-            hi <- (2/3)*hi
+            hina <- hi
+            #hi <- lo + (0.9)*(hi-lo)
+            hi <- 0.5*(hina + hipos)
         } else {
-            if(fhi < 0) { hicont <- FALSE } else { hi <- 2*hi }
+            if(fhi < 0) {
+                hicont <- FALSE
+            } else {
+                #hi <- 1.1*hi
+                hipos <- hi
+                hi <- if(is.infinite(hina)) { 2*hipos } else { 0.5*(hina + hipos) }
+            }
         }
     }
 
@@ -38,7 +46,7 @@ search.open <- function(W0, lo=1e-4, hi=1e0, log=TRUE, ...) {
     tryCatch({
         urres <- uniroot(opencrit, c(lo, hi),
                          f.lower=flo, f.upper=fhi,
-                         W0=W0, log=log, ...)
+                         W0=W0, log=log, verbose=verbose, ...)
     }, error=function(e) {
         stop(e)
     })
@@ -175,7 +183,8 @@ search.brid.tight <- function(f.n, f.f, lo, mid, hi, eps=1e-6, ...) {
 #' @param debug report debugging information?
 #' @param ... additional arguments to criterion function
 #' @importFrom stats uniroot
-search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
+search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, verbose=0, ...) {
+    if(verbose >= .verbose$TRACE) cat('Call: search.brid\n')
     # for unequal Ws, we have two (three) search regions
     # on half with bigger W
     #   Mp crosses 0 somewhere
@@ -197,14 +206,14 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
     mid <- (xr-xl)/2
 
     # look for Mp crossover
-    Mplo <- bridge.Mp.crit(lo, xl, xr, Wl, Wr, ...)
-    Mphi <- bridge.Mp.crit(hi, xl, xr, Wl, Wr, ...)
+    Mplo <- bridge.Mp.crit(lo, xl, xr, Wl, Wr, verbose=verbose, ...)
+    Mphi <- bridge.Mp.crit(hi, xl, xr, Wl, Wr, verbose=verbose, ...)
     if(Mplo * Mphi >= 0) {
         stop('Mp has equal sign near both endpoints: probably eps too big')
     } else {
         urMp <- uniroot(bridge.Mp.crit, c(lo, hi),
                         f.lower=Mplo, f.upper=Mphi,
-                        xl=xl, xr=xr, Wl=Wl, Wr=Wr, ...)
+                        xl=xl, xr=xr, Wl=Wl, Wr=Wr, verbose=verbose, ...)
         Mp0 <- urMp$root
     }
 
@@ -222,7 +231,7 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
     #if(abs(Wr-Wl) < 1e-7){
     #if(abs(Mp0 - mid) < 1e-7){
     if(FALSE){
-        res <- search.brid.tight(bridcrit.f, bridcrit.f.normal, lo, mid, hi, eps=eps, ...)
+        res <- search.brid.tight(bridcrit.f, bridcrit.f.normal, lo, mid, hi, eps=eps, verbose=verbose, ...)
     } else {
         # which half are we in? +1 = upper, -1 = lower
         half.sign <- sign(Mp0 - mid)
@@ -241,7 +250,7 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
             upperzero.int <- c(lo, Mp0)
         }
 
-        if(debug) {
+        if(verbose >= .verbose$DEBUG) {
             cat(sprintf('%s --- %s --- %s\n', lo, mid, hi))
             cat(sprintf('Mp0: %s --- u0: %s --- lo: %s\n',
                         Mp0,
@@ -252,7 +261,7 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
         res <- tryCatch({
             res <- search.brid.regular(bridcrit.f, bridcrit.f.normal,
                                        upperzero.int, loweroptim.int, lowerzero.end,
-                                       mid, Mp0, ...)
+                                       mid, Mp0, verbose=verbose, ...)
             res
         }, error=function(e) {
             # optimistically: we have guessed the wrong half, so let's try in the other?
@@ -267,7 +276,7 @@ search.brid <- function(xl, xr, Wl, Wr, eps=1e-6, debug=FALSE, ...) {
             }
             res <- search.brid.regular(bridcrit.f, bridcrit.f.normal,
                                        upperzero.int, loweroptim.int, lowerzero.end,
-                                       mid, Mp0, ...)
+                                       mid, Mp0, verbose=verbose, ...)
             res
         })
         res
