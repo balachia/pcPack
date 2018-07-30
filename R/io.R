@@ -16,7 +16,6 @@ make_parameters <- function(file=default_parameters_file) {
     write_parameters(list(), file)
 }
 
-
 #' @export
 make_simulation_listing <- function(nsim, niter, peaks, seed, agents, tags=NULL, ...) {
     res <- list()
@@ -61,6 +60,8 @@ print.simulation_listing <- function(x, ...) {
     cat(sprintf('\ttags:\t'))
     if(!is.null(x$tags)) {
         cat(sprintf('%s\n', paste(x$tags, collapse=';')))
+    } else {
+        cat('\n')
     }
 
     cat(sprintf('\tcats:'))
@@ -167,7 +168,7 @@ find_simulation <- function(parameters, ...) {
     for(i in seq_along(l)) {
         pname <- names(l)[i]
         pval <- l[[i]]
-        parameters <- Filter(function(x) { x[[pname]] == pval }, parameters)
+        parameters <- Filter(function(x) { (!is.null(x[[pname]])) && (x[[pname]] == pval) }, parameters)
     }
 
     parameters
@@ -220,3 +221,4 @@ load_categorization_data <- function(digest,
     sim_dat <- load_simulation_data(sim_digest, parameters_file=parameters_file, data_dir=data_dir)
     list(listing=catl, data=dat, simulation=sim_dat)
 }
+
