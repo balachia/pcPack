@@ -305,14 +305,6 @@ agentUpdate.gom.agent <- function(agent, update.idx, intervals, verbose=.verbose
                                   idx, xl, xr, intervals[idx, Wl], intervals[idx, Wr],
                                   gom.mean, gom.sd))
             }
-            ## build M adjustments:
-            #if(agent$logp) {
-            #    ag.Madj <- function(...) gw*gom.log.Madj(...)
-            #    ag.Mpadj <- function(...) gw*gom.log.Mpadj(...)
-            #} else {
-            #    ag.Madj <- function(...) gw*gom.Madj(...)
-            #    ag.Mpadj <- function(...) gw*gom.Mpadj(...)
-            #}
             if(is.infinite(xl)) {
                 # open left interval
                 Madj <- function(delta, ...) agent$Madj.open(delta) + agent$gom.Madj(xr-delta, gom.mean, gom.sd, gom.peak, ...)
