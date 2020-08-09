@@ -159,6 +159,21 @@ register_categorization <- function(simulation_digest,
 }
 
 #' @export
+retag_simulation <- function(simulation_digest, tags,
+                             append=TRUE,
+                             parameters_file=default_parameters_file,
+                             ...) {
+    parameters <- read_parameters(parameters_file)
+    sim_listing <- parameters[[simulation_digest]]
+    if(!is.null(sim_listing)) {
+        sim_listing$tags <- if(append) { c(sim_listing$tags, tags) } else { tags }
+        parameters[[simulation_digest]] <- sim_listing
+        write_parameters(parameters, file=parameters_file)
+    }
+    sim_listing
+}
+
+#' @export
 #find_simulation <- function(parameters_file=default_parameters_file, ...) {
 find_simulation <- function(parameters, ...) {
     #parameters <- read_parameters(parameters_file)
