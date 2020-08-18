@@ -1,7 +1,16 @@
 ############################################################
 # agent generics
 
+# general flow:
+# 1) create agent with `make_X_agent` and pass to simulator
+# 2) `run_simulation` calls `agentEntry` on selected agent
+#       expect: agent returns one entry position
+# 3) `run_simulation` calls `agentUpdate` on ALL agents
+#       expect: each agent updates its table of position values
+
 #' agent entry
+#'
+#' Request agent's next entry position
 #'
 #' @param agent entering agent
 #' @param i entry count (id)
