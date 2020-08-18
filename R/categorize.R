@@ -25,6 +25,7 @@ agglom.reduc <- function(xs,x) {
 process_reports <- function(f, nsim, max.iter) {
     done <- integer(length=nsim)
     ks <- vector(mode='list', length=nsim)
+    length.wipe <- min(10, getOption('mc.cores', default=2L)) * (11 + log(max.iter, 10))
     while(!isIncomplete(f)) {
         msg <- readBin(f, 'character')
         msgs <- as.numeric(strsplit(msg, ':', fixed=TRUE)[[1]])
@@ -32,7 +33,8 @@ process_reports <- function(f, nsim, max.iter) {
         done[simi] <- msgs[2]
         ks[[simi]] <- c(ks[[simi]], msgs[3])
         if(msgs[2] == max.iter) {
-            cat('\r', rep(' ', getOption('width')), sep='', collapse='')
+            #cat('\r', rep(' ', getOption('width')), sep='', collapse='')
+            cat('\r', rep(' ', length.wipe), sep='', collapse='')
             cat(sprintf('\r(%5.1f%%) %d %s\n',
                         100*sum(done==max.iter) / nsim,
                         simi,
@@ -41,9 +43,16 @@ process_reports <- function(f, nsim, max.iter) {
             #    sep='', collapse='')
         }
         curr <- which((done>0) & (done<max.iter))
-        cat('\r', paste0(sprintf('%d %6.2f%%', curr, 100*done[curr]/max.iter),
-                         collapse=', '),
-            sep='')
+        fl <- order(done[curr], decreasing=TRUE)[c(1, length(curr))]
+        pcts <- 100*done[curr]/max.iter
+        if(length(curr) > 6) {
+            cat(sprintf('\r%d %6.2f%% ...[+%d]... %d %6.2f%%',
+                        curr[fl[1]], pcts[fl[1]], length(curr) - 2, curr[fl[2]], pcts[fl[2]]))
+        } else {
+            cat('\r', paste0(sprintf('%d %6.2f%%', curr, 100*done[curr]/max.iter),
+                             collapse=', '),
+                sep='')
+        }
     }
     cat('\n')
     parallel:::mcexit()
