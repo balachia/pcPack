@@ -22,23 +22,31 @@ agglom.reduc <- function(xs,x) {
 }
 
 #' Reporting function for parallel categorizations
-process_reports <- function(f, nsim, max.iter) {
+process_reports <- function(f, sims, max.iter) {
+    nsim <- length(sims)
+    sim.map <- seq_along(sims)
+    names(sim.map) <- sims
     done <- integer(length=nsim)
     ks <- vector(mode='list', length=nsim)
-    length.wipe <- min(10, getOption('mc.cores', default=2L)) * (11 + log(max.iter, 10))
+    length.wipe <- min(6, getOption('mc.cores', default=2L)) * (11 + log(max.iter, 10))
+    wipe.str <- paste0(rep(' ', length.wipe), collapse='')
     while(!isIncomplete(f)) {
         msg <- readBin(f, 'character')
         msgs <- as.numeric(strsplit(msg, ':', fixed=TRUE)[[1]])
+        # extract simulation id, and find its runner index
         simi <- msgs[1]
-        done[simi] <- msgs[2]
-        ks[[simi]] <- c(ks[[simi]], msgs[3])
+        simidx <- sim.map[as.character(simi)]
+        # extract last completed iteration
+        done[simidx] <- msgs[2]
+        ks[[simidx]] <- c(ks[[simidx]], msgs[3])
         if(msgs[2] == max.iter) {
             #cat('\r', rep(' ', getOption('width')), sep='', collapse='')
-            cat('\r', rep(' ', length.wipe), sep='', collapse='')
+            #cat('\r', rep(' ', length.wipe), sep='', collapse='')
+            cat('\r', wipe.str, '\r')
             cat(sprintf('\r(%5.1f%%) %d %s\n',
                         100*sum(done==max.iter) / nsim,
                         simi,
-                        agglom(sort(unique(ks[[simi]])))))
+                        agglom(sort(unique(ks[[simidx]])))))
             #cat('\r', simi, ' ', agglom(sort(unique(ks[[simi]]))), '\n',
             #    sep='', collapse='')
         }
@@ -46,10 +54,10 @@ process_reports <- function(f, nsim, max.iter) {
         fl <- order(done[curr], decreasing=TRUE)[c(1, length(curr))]
         pcts <- 100*done[curr]/max.iter
         if(length(curr) > 6) {
-            cat(sprintf('\r%d %6.2f%% ...[+%d]... %d %6.2f%%',
-                        curr[fl[1]], pcts[fl[1]], length(curr) - 2, curr[fl[2]], pcts[fl[2]]))
+            cat(sprintf('\r%s\r%d %6.2f%% ...[+%d]... %d %6.2f%%\r',
+                        wipe.str, sims[curr[fl[1]]], pcts[fl[1]], length(curr) - 2, sims[curr[fl[2]]], pcts[fl[2]]))
         } else {
-            cat('\r', paste0(sprintf('%d %6.2f%%', curr, 100*done[curr]/max.iter),
+            cat('\r', paste0(sprintf('%d %6.2f%%', sims[curr], 100*done[curr]/max.iter),
                              collapse=', '),
                 sep='')
         }
@@ -73,17 +81,23 @@ make_report_function <- function(f, simi) {
 #' @param max.iter number of iterations per market to categorize
 #' @export
 make_categories_runner <- function(positions, nsim=NULL, max.iter=NULL, ...) {
-    nsim <- if(is.null(nsim)) max(positions$sim) else nsim
+    #nsim <- if(is.null(nsim)) max(positions$sim) else nsim
+    sim_seq <- unique(positions$sim)
+    #cat('Make categories runner, max.iter', max.iter, '\n')
+    #print(sim_seq)
+    #nsim <- length(sim_seq)
     niter <- if(is.null(max.iter)) max(positions$id) else max.iter
 
     f <- fifo(tempfile(), open="w+b", blocking=T)
     if (inherits(parallel:::mcfork(), "masterProcess")) {
-        process_reports(f, nsim, max.iter=niter)
+        process_reports(f, sim_seq, max.iter=niter)
     }
-    result <- parallel::mclapply(1:nsim, function(simi) {
+    result <- parallel::mclapply(sim_seq, function(simi) {
             reportf <- make_report_function(f, simi)
             make_categories(positions=positions[sim==simi],
-                            reportf=reportf, ...)
+                            reportf=reportf, 
+                            max.iter=niter,
+                            ...)
         })
     close(f)
     result
@@ -110,11 +124,39 @@ make_categories <- function(positions,
     #ems <- rep(list(NULL), max.iter)
     ems <- vector('list', max.iter)
 
+    xcat.f <- switch(package,
+                     'mclust'=categorize.mclust,
+                     'BAMBI'=categorize.BAMBI,
+                     'EMCluster'=categorize.EMCluster)
+    max.errors <- 3
+    #max.errors <- sample(0:1, 1)
+    errorf <- function(x, e, remain=max.errors) {
+        #if(remain < max.errors) cat('DEBUG errorf', remain, ', simi', positions[, unique(sim)], '\n')
+        if(remain > 0) {
+            xcat <- tryCatch({
+                xcat.f(x, ...)
+            }, error=function(e) {
+                cat(sprintf('\nERROR (-%d) on %d: %s\n', remain, positions[, unique(sim)], e$message))
+                errorf(x, e, remain-1)
+            })
+        } else {
+            cat(sprintf('\nPERSISTENT ERROR on %d: %s\n', positions[, unique(sim)], e$message))
+            stop(e)
+        }   
+        xcat
+    }
+
     for(i in min.iter:max.iter) {
         x <- positions[id <= i, x]
-        xcat <- switch(package,
-                       'mclust'=categorize.mclust(x, ...),
-                       'EMCluster'=categorize.EMCluster(x, ...))
+        #cat('DEBUG initial, iter', i, ', simi', positions[, unique(sim)], '\n')
+        xcat <- errorf(x, NULL)
+        #tryCatch({
+        #    xcat <- xcat.f(x, ...)
+        #}, error=function(e) cat('\nERROR:', e$message, '\n'))
+        #xcat <- switch(package,
+        #               'mclust'=categorize.mclust(x, ...),
+        #               'BAMBI'=categorize.BAMBI(x, ...),
+        #               'EMCluster'=categorize.EMCluster(x, ...))
 
         ems[[i]] <- xcat$mix
 
@@ -135,6 +177,36 @@ categorize.mclust <- function(x, min.k=1, max.k=9, ...) {
     }
     list(mix=res, k=res$G)
 }
+
+#' @import BAMBI
+categorize.BAMBI <- function(x, min.k=1, max.k=10, ic='BIC', ...) {
+    subcommand <- function(x, ..min.k, ..max.k) {
+        capture.output({
+            res <- BAMBI::fit_incremental_angmix(model='wnorm',
+                                                 data=x,
+                                                 show.progress=FALSE,
+                                                 silent=TRUE,
+                                                 crit=ic,
+                                                 start_ncomp=..min.k,
+                                                 max_ncomp=..max.k)
+            res <- BAMBI::bestmodel(res)
+        })
+        res
+    }
+    .min.k <- min.k
+    .max.k <- max.k
+    xang <- scales::rescale(x, to=c(0, 2*pi))
+    res <- subcommand(xang, .min.k, .max.k)
+    while(res$ncomp == .max.k) {
+        .min.k <- .max.k
+        .max.k <- 2*.max.k
+        res <- subcommand(xang, .min.k, .max.k)
+    }
+    if (res$ncomp > 1) capture.output(res <- BAMBI::fix_label(res))
+    mix <- BAMBI::pointest(res)
+    list(mix=mix, k=res$ncomp)
+}
+
 
 
 categorize.EMCluster <- function(x, min.k=1, ic='BIC', ...) {
