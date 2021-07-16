@@ -13,6 +13,7 @@ Imports:
     EMCluster,
     mclust,
     ggplot2,
+    pcSoftmaxPack,
     matrixStats
 RoxygenNote: 7.1.1
 Suggests:
