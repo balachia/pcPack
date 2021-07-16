@@ -22,10 +22,11 @@ agentEntry <- function(agent, i, intervals, positions, ...) UseMethod('agentEntr
 
 #' agent update
 #'
-#' @param agent updated agent
+#' @param agent agent to updated
 #' @param update.idx updated indices in intervals table
 #' @param intervals (data.table) new market intervals table
 #' @param ... additional arguments to agents
+#' @return updated agent
 #' @export
 agentUpdate <- function(agent, update.idx, intervals, ...) UseMethod('agentUpdate')
 
