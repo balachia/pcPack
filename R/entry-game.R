@@ -125,6 +125,50 @@ run_simulations <- function(nsim, n,
     purrr::transpose(ress)
 }
 
+#' Run multiple simulations (future)
+#' 
+#' @param nsim number of markets to simulation
+#' @param n number of entries into each market (simulation iterations)
+#' @param agent.fs list of functions to create agent types
+#' @param insert.dt list of initial positions to insert
+#' @param seed control random seed
+#' @param verbose verbosity
+#' @param ... additional arguments for agent types
+#' @import data.table
+#' @export
+run_simulations_future <- function(nsim, n,
+                            #agent.fs=list(make_standard_agent),
+                            agents=list(make_standard_agent()),
+                            insert.dt=data.table(x=0, W=0),
+                            seed=1, verbose=.verbose$NONE,
+                            ...) {
+    # pre-sample seeds for parallel computation
+    set.seed(seed)
+    seeds <- sample.int(.Machine$integer.max, nsim)
+    sim.format <- sprintf('SIM %%%dd / %d ', 1+floor(log10(nsim)), nsim)
+    time.format <- ' (%0.2fs | %0.2fs/i)\n'
+    ptm <- proc.time()
+    #ress <- parallel::mclapply(1:nsim,
+    ress <- future.apply::future_lapply(1:nsim,
+        future.seed = TRUE,
+        FUN=function(simi) {
+            set.seed(seeds[simi])
+            if(verbose >= .verbose$NONE) cat(sprintf(sim.format, simi))
+            if(verbose >= .verbose$INFO) cat(sprintf('(seed %s) ', seeds[simi]))
+            #ags0 <- lapply(agent.fs, function(f) f(n, ...))
+            #agl <- set_up_agents(n, insert.dt, ags0, ...)
+            agl <- set_up_agents(n, insert.dt, agents, ...)
+            res <- run_simulation(n, agl$agents, agl$order, verbose=verbose, ...)
+            dtime <- (proc.time() - ptm)[3]
+            if(verbose >= .verbose$NONE) cat(sprintf(time.format, dtime, dtime/simi))
+            res$positions[, sim := simi]
+            res$intervals[, sim := simi]
+            res
+        })
+
+    purrr::transpose(ress)
+}
+
 #' Combine list of simulations into a single structure
 #' 
 #' @param sims_list list of simulations
