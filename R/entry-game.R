@@ -152,7 +152,7 @@ run_simulations_future <- function(nsim, n,
     ress <- future.apply::future_lapply(1:nsim,
         future.seed = TRUE,
         FUN=function(simi) {
-            set.seed(seeds[simi])
+            #set.seed(seeds[simi])
             if(verbose >= .verbose$NONE) cat(sprintf(sim.format, simi))
             if(verbose >= .verbose$INFO) cat(sprintf('(seed %s) ', seeds[simi]))
             #ags0 <- lapply(agent.fs, function(f) f(n, ...))
