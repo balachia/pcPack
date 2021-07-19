@@ -14,7 +14,8 @@ Imports:
     mclust,
     ggplot2,
     pcSoftmaxPack,
-    matrixStats
+    matrixStats,
+    BAMBI
 RoxygenNote: 7.1.1
 Suggests:
     testthat,
