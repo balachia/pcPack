@@ -4,7 +4,7 @@
 \alias{dct.logged}
 \title{Log competition function (d/ddelta)}
 \usage{
-dct.logged(delta)
+dct.logged(delta, ...)
 }
 \arguments{
 \item{delta}{distance from competitor}

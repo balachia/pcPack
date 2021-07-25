@@ -107,7 +107,7 @@ search.open.bounds <- function(lo=1e-4, eps=1e-6, max.fiter=1e3, verbose=0, ...)
 bridge.Mp.crit <- function(delta, xl, xr, Wl, Wr, Mpadj=function(...) 0, ...) {
     dbar <- xr - xl - delta
     #(Wr-Wl)/(xr-xl) + dct(delta) - dct(dbar)
-    (Wr-Wl)/(xr-xl) + Mpadj(delta, dbar, ...)
+    (Wr-Wl)/(xr-xl) + Mpadj(delta, dbar, Wl = Wl, Wr = Wr, ...)
 }
 
 #' Regular search procedure for bridge interval.
