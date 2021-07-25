@@ -4,7 +4,7 @@
 \alias{dct}
 \title{Competition function (d/ddelta)}
 \usage{
-dct(delta)
+dct(delta, ...)
 }
 \arguments{
 \item{delta}{distance from competitor}
