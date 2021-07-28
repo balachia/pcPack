@@ -290,6 +290,46 @@ get_goms <- function(x, mix, logp=TRUE) {
         })
 }
 
+#' Get grades of membership for an object according to a mixture (linear landscape)
+#' 
+#' @param x object to categorize
+#' @param mix mixtures distributions
+#' @param logp return grades-of-membership in log form
+#' @export
+get_goms_linear <- function(x, mix, logp = TRUE) {
+    mixps <- get_mix_parameters(mix)
+    sapply(1:mixps$k, function(i) {
+            ps <- dnorm(x, mean=mixps$mean[i], sd=mixps$sd[i], log=logp)
+            peak <- dnorm(mixps$mean[i], mean=mixps$mean[i], sd=mixps$sd[i], log=logp)
+            if(logp) {
+                ps - peak
+            } else {
+                ps/peak
+            }
+        })
+}
+
+#' Get grades of membership for an object according to a mixture (Salop landscape)
+#' 
+#' Currently assuming BAMBI
+#' @param x object to categorize
+#' @param mix mixtures distributions
+#' @param logp return grades-of-membership in log form
+#' @export
+get_goms_salop <- function(x, mix, logp = TRUE) {
+    mixps <- get_mix_parameters.BAMBI(mix)
+    xang <- scales::rescale(x, to=c(0, 2*pi))
+    sapply(1:mixps$k, function(i) {
+            ps <- dwnorm(xang, mu=mixps$mean[i], kappa=mixps$kappa[i], log=logp)
+            peak <- dwnorm(mixps$mean[i], mu=mixps$mean[i], kappa=mixps$kappa[i], log=logp)
+            if(logp) {
+                ps - peak
+            } else {
+                ps/peak
+            }
+        })
+}
+
 get_goms.EMCluster <- function(x, mix, logp=TRUE) {
     res <- sapply(1:mix$nclass, function(ci) {
             cat.ps <- dmixmvn(as.matrix(x), emobj=NULL, log=logp,
@@ -331,6 +371,13 @@ get_mix_parameters.Mclust <- function(mix) {
          prob=mix$parameters$pro,
          mean=mix$parameters$mean,
          sd=rep(sqrt(mix$parameters$variance$sigmasq), length.out=mix$G))
+}
+
+get_mix_parameters.BAMBI <- function(mix) {
+    list(k=ncol(mix),
+         prob=mix['pmix',],
+         mean=mix['mu',],
+         kappa=mix['kappa',])
 }
 
 # TODO: for completeness, implement:
