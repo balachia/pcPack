@@ -4,7 +4,7 @@
 \alias{position_statistics}
 \title{add category definitions to positions table}
 \usage{
-position_statistics(positions, goms)
+position_statistics(positions, goms, min.iter = NULL)
 }
 \description{
 add category definitions to positions table

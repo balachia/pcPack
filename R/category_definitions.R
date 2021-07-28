@@ -81,7 +81,12 @@ expand_positions <- function(positions, sims, iters) {
 #' add category definitions to positions table
 #'
 #' @export
-position_statistics <- function(positions, goms) {
+position_statistics <- function(positions, goms, min.iter = NULL) {
+    if(is.null(min.iter)) {
+        min.iter <- sum(sapply(goms[[1]], is.null)) + 1
+    }
+    if(min.iter > 1) { goms <- lapply(goms, function(sim.goms) tail(sim.goms, -min.iter + 1)) }
+
     big.goms <- do.call(rbind,
                         lapply(goms, function(sim.goms) do.call(rbind,
                                                                 lapply(sim.goms, function(x) x$goms))))
@@ -90,8 +95,8 @@ position_statistics <- function(positions, goms) {
                                                                 lapply(sim.ords, function(x) x$ords))))
 
     gom_stats <- gom_statistics(big.goms)
-    positions[iter > 6, names(gom_stats) := gom_stats]
-    positions[iter > 6, cat.id := big.ords[,1]]
+    positions[iter >= min.iter, names(gom_stats) := gom_stats]
+    positions[iter >= min.iter, cat.id := big.ords[,1]]
     #positions[, dW := W - mean(W), by=list(sim, iter, cat.id)]
 
     # binarized
