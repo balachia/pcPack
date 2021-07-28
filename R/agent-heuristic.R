@@ -88,18 +88,22 @@ agentUpdate.heuristic.agent <- function(agent, update.idx, intervals, ...) {
             # open left interval
             W <- intervals[idx, Wr]
             delta1 <- agent$jump
-            Eu1 <- W - ct(delta1)
+            Eu1 <- W + ct(delta1)
         } else if(is.infinite(xr)) {
             # open right interval
             W <- intervals[idx, Wl]
             delta1 <- agent$jump
-            Eu1 <- W - ct(delta1)
+            Eu1 <- W + ct(delta1)
         } else {
             # bridge interval
             Wl <- intervals[idx, Wl]
             Wr <- intervals[idx, Wr]
             delta1 <- (xr - xl) / 2
-            Eu1 <- (Wl + Wr) / 2 - 2 * ct(delta1)
+            if (delta1 < 10 * .Machine$double.eps) {
+                Eu1 <- -Inf
+            } else {
+                Eu1 <- ((Wl + Wr) / 2) + (2 * ct(delta1))
+            }
         }
         plan[idx, `:=`(delta=delta1, Eu=Eu1)]
     }
